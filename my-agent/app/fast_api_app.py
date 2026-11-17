@@ -138,14 +138,10 @@ async def get_react_app():
     return await get_dashboard()
 
 
-@app.get("/dashboard", response_class=HTMLResponse)
+@app.get("/dashboard")
 async def get_dashboard():
-    """Serves the standalone Grant Officer interactive decision dashboard."""
-    template_path = os.path.join(AGENT_DIR, "app", "templates", "dashboard.html")
-    if not os.path.exists(template_path):
-        raise HTTPException(status_code=404, detail="Dashboard template not found.")
-    with open(template_path, "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read())
+    """Redirects to root to provide a single unified application experience."""
+    return RedirectResponse(url="/", status_code=302)
 
 
 @app.get("/api/requests")

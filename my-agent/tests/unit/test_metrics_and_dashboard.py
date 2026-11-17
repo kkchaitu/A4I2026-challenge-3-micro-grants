@@ -112,10 +112,9 @@ def test_api_routes():
     app_resp = client.get("/app")
     assert app_resp.status_code == 200
 
-    dash_resp = client.get("/dashboard")
+    dash_resp = client.get("/dashboard", follow_redirects=True)
     assert dash_resp.status_code == 200
     assert "Engine of Prosperity" in dash_resp.text
-    assert "Incoming Grant & Loan Queue" in dash_resp.text
 
     # 2. List Requests API
     list_resp = client.get("/api/requests")

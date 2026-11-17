@@ -32,15 +32,15 @@ export function Header({
       {/* Top Banner */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-400 flex items-center justify-center shadow-lg shadow-blue-500/20 text-white font-bold text-lg">
-            <Network className="w-5 h-5 text-white" />
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 via-teal-600 to-cyan-400 flex items-center justify-center shadow-lg shadow-emerald-500/20 text-white font-bold text-lg">
+            <Sparkles className="w-5 h-5 text-white" />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h1 className="font-bold text-lg text-slate-100 tracking-tight">
-                Resilience<span className="text-blue-400">Grants</span>
+                Engine of <span className="text-emerald-400">Prosperity</span>
               </h1>
-              <span className="text-[10px] uppercase font-mono tracking-wider px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/25">
+              <span className="text-[10px] uppercase font-mono tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
                 A4I 2026 // Challenge 3
               </span>
               <button
@@ -59,7 +59,7 @@ export function Header({
             <p className="text-xs text-slate-400 flex items-center gap-1.5">
               <span>San Francisco OEWD Economic Development</span>
               <span className="text-slate-600">•</span>
-              <span>Cascade-Aware Relief Allocation</span>
+              <span>Economic Engines & Employment Multiplier Model</span>
             </p>
           </div>
         </div>
@@ -125,18 +125,8 @@ export function Header({
             </button>
           </div>
 
-          {/* External Tools */}
+          {/* External ADK Playground */}
           <div className="flex items-center gap-1.5">
-            <a
-              href="/dashboard"
-              target="_blank"
-              rel="noreferrer"
-              className="text-[11px] font-medium px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center gap-1 transition"
-              title="Open standalone Grant Officer review dashboard"
-            >
-              <span>Officer Dashboard</span>
-              <span className="text-[10px]">↗</span>
-            </a>
             <a
               href="/dev-ui/?app=app"
               target="_blank"
@@ -144,7 +134,7 @@ export function Header({
               className="text-[11px] font-medium px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-purple-300 border border-purple-500/30 flex items-center gap-1 transition"
               title="Open native Google ADK developer playground"
             >
-              <span>ADK Playground</span>
+              <span>ADK Dev Playground</span>
               <span className="text-[10px]">↗</span>
             </a>
           </div>
@@ -154,7 +144,7 @@ export function Header({
       {/* Navigation Tabs */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex space-x-1 border-t border-slate-800/80 overflow-x-auto py-1">
         {[
-          { id: 'live-queue', label: 'Live ADK Queue', icon: Sparkles, badge: 'Live GQL' },
+          { id: 'live-queue', label: 'Grant Decision Queue', icon: Sparkles, badge: 'Live GQL' },
           { id: 'funding-queue', label: 'Strategy Optimizer', icon: Layers },
           { id: 'network-graph', label: 'Cascade Network Graph', icon: Network },
           { id: 'map-view', label: 'Google Map & Geospatial View', icon: MapPin },

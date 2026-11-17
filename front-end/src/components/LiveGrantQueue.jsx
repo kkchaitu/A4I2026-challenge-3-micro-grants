@@ -328,8 +328,30 @@ export function LiveGrantQueue({
                       <button
                         onClick={() => handleOpenReport(req.request_id)}
                         className="px-2.5 py-1 text-xs rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium transition cursor-pointer"
+                        title="View 4-pillar scorecard & memo"
                       >
-                        Report & Memo
+                        Scorecard & Memo
+                      </button>
+                      <button
+                        onClick={() => onSelectBusinessForGraph(req.business_id)}
+                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition cursor-pointer"
+                        title="Open in Cascade Network Graph"
+                      >
+                        <Network className="w-3.5 h-3.5 text-blue-400" />
+                      </button>
+                      <button
+                        onClick={() => onSelectBusinessForMap(req.business_id)}
+                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition cursor-pointer"
+                        title="View on Google Map"
+                      >
+                        <MapPin className="w-3.5 h-3.5 text-cyan-400" />
+                      </button>
+                      <button
+                        onClick={() => onSelectBusinessForMemo(req.business_id)}
+                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition cursor-pointer"
+                        title="Generate Municipal Letterhead Memo"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-amber-400" />
                       </button>
                     </div>
                   </td>
@@ -577,6 +599,17 @@ export function LiveGrantQueue({
                 >
                   <MapPin className="w-3.5 h-3.5" />
                   <span>View on Corridor Map</span>
+                </button>
+                <button
+                  onClick={() => {
+                    const id = activeReport.business_id;
+                    setActiveReport(null);
+                    onSelectBusinessForMemo(id);
+                  }}
+                  className="px-3 py-1.5 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Generate Municipal Memo</span>
                 </button>
               </div>
 

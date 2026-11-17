@@ -15,11 +15,12 @@ import { GrantMemoView } from './components/GrantMemoView';
 import { WhatIfSimulator } from './components/WhatIfSimulator';
 import { AIAgentChat } from './components/AIAgentChat';
 import { EquityDemographics } from './components/EquityDemographics';
+import { LiveGrantQueue } from './components/LiveGrantQueue';
 
 export function App() {
   const [activeCorridorId, setActiveCorridorId] = useState('central-market');
   const [budget, setBudget] = useState(50000);
-  const [activeTab, setActiveTab] = useState('funding-queue');
+  const [activeTab, setActiveTab] = useState('live-queue');
   const [strategyMode, setStrategyMode] = useState('resilience'); // 'resilience' | 'naive'
   const [selectedBusinessId, setSelectedBusinessId] = useState('cm-01');
   const [agentOnline, setAgentOnline] = useState(false);
@@ -159,6 +160,18 @@ export function App() {
         />
 
         {/* Dynamic Tab Views */}
+        {activeTab === 'live-queue' && (
+          <LiveGrantQueue
+            corridor={currentCorridor}
+            onSelectBusinessForGraph={handleSelectBusinessForGraph}
+            onSelectBusinessForMap={(bizId) => {
+              setSelectedBusinessId(bizId);
+              setActiveTab('map-view');
+            }}
+            onSelectBusinessForMemo={handleSelectBusinessForMemo}
+          />
+        )}
+
         {activeTab === 'funding-queue' && (
           <FundingQueue
             corridor={currentCorridor}

@@ -105,10 +105,12 @@ def test_api_routes():
     """Verifies FastAPI endpoints for dashboard and API."""
     client = TestClient(app)
 
-    # 1. Dashboard HTML (accessible at both / and /dashboard)
+    # 1. Frontend HTML (accessible at / and /app, and standalone dashboard at /dashboard)
     root_resp = client.get("/")
     assert root_resp.status_code == 200
-    assert "Engine of Prosperity" in root_resp.text
+
+    app_resp = client.get("/app")
+    assert app_resp.status_code == 200
 
     dash_resp = client.get("/dashboard")
     assert dash_resp.status_code == 200

@@ -24,6 +24,12 @@ echo "📍 Region:       $REGION"
 echo "⚙️  Service:      $SERVICE_NAME"
 echo "📁 Source Path:  $REPO_ROOT/my-agent"
 echo "------------------------------------------------------------"
+echo "🔨 Building React frontend..."
+(cd "$REPO_ROOT/front-end" && npm install && npm run build)
+mkdir -p "$REPO_ROOT/my-agent/app/static/react_dist"
+cp -r "$REPO_ROOT/front-end/dist/"* "$REPO_ROOT/my-agent/app/static/react_dist/"
+echo "✅ React build packaged into my-agent/app/static/react_dist"
+echo ""
 echo "Building container and deploying... (takes ~1-2 minutes)"
 echo ""
 
@@ -46,7 +52,7 @@ SERVICE_URL=$(gcloud run services describe "$SERVICE_NAME" --project="$PROJECT_I
 
 echo "============================================================"
 echo "✅ Deployment Successful!"
-echo "🌐 Service URL: $SERVICE_URL"
+echo "🌐 Combined React App:      $SERVICE_URL"
 echo "🎮 Grant Officer Dashboard: $SERVICE_URL/dashboard"
 echo "⚙️  ADK Dev Playground:     $SERVICE_URL/dev-ui/?app=app"
 echo "============================================================"

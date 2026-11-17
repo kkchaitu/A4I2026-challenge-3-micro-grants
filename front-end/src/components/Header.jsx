@@ -124,13 +124,38 @@ export function Header({
               <span className="text-[11px]">Naive Distress</span>
             </button>
           </div>
+
+          {/* External Tools */}
+          <div className="flex items-center gap-1.5">
+            <a
+              href="/dashboard"
+              target="_blank"
+              rel="noreferrer"
+              className="text-[11px] font-medium px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center gap-1 transition"
+              title="Open standalone Grant Officer review dashboard"
+            >
+              <span>Officer Dashboard</span>
+              <span className="text-[10px]">↗</span>
+            </a>
+            <a
+              href="/dev-ui/?app=app"
+              target="_blank"
+              rel="noreferrer"
+              className="text-[11px] font-medium px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-purple-300 border border-purple-500/30 flex items-center gap-1 transition"
+              title="Open native Google ADK developer playground"
+            >
+              <span>ADK Playground</span>
+              <span className="text-[10px]">↗</span>
+            </a>
+          </div>
         </div>
       </div>
 
       {/* Navigation Tabs */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex space-x-1 border-t border-slate-800/80 overflow-x-auto py-1">
         {[
-          { id: 'funding-queue', label: 'Grant Allocation Queue', icon: Layers },
+          { id: 'live-queue', label: 'Live ADK Queue', icon: Sparkles, badge: 'Live GQL' },
+          { id: 'funding-queue', label: 'Strategy Optimizer', icon: Layers },
           { id: 'network-graph', label: 'Cascade Network Graph', icon: Network },
           { id: 'map-view', label: 'Google Map & Geospatial View', icon: MapPin },
           { id: 'grant-memo', label: 'Official Grant Memo', icon: FileText, highlight: true },
@@ -144,7 +169,7 @@ export function Header({
             <button
               key={tab.id}
               onClick={() => onSelectTab(tab.id)}
-              className={`flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-lg transition-all whitespace-nowrap ${
+              className={`flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-lg transition-all whitespace-nowrap cursor-pointer ${
                 isActive
                   ? 'bg-blue-600/15 text-blue-400 border border-blue-500/30'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 border border-transparent'
@@ -152,6 +177,11 @@ export function Header({
             >
               <Icon className="w-4 h-4" />
               <span>{tab.label}</span>
+              {tab.badge && (
+                <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-mono font-bold">
+                  {tab.badge}
+                </span>
+              )}
               {tab.highlight && (
                 <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-mono">
                   Memo

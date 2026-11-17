@@ -22,6 +22,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from google.adk.cli.fast_api import get_fast_api_app
 from google.adk.runners import Runner
@@ -102,7 +103,15 @@ class CreateApplicationInput(BaseModel):
     business_name: Optional[str] = None
 
 
-# Override default ADK root redirect so the root URL opens our Grant Officer Dashboard directly
+# Path to front-end dist directory (checks app/static/react_dist first for Docker, then dev path)
+FRONTEND_DIST = os.path.join(AGENT_DIR, "app", "static", "react_dist")
+if not os.path.exists(FRONTEND_DIST):
+    FRONTEND_DIST = os.path.abspath(os.path.join(AGENT_DIR, "..", "front-end", "dist"))
+
+if os.path.exists(os.path.join(FRONTEND_DIST, "assets")):
+    app.mount("/assets", StaticFiles(directory=os.path.join(FRONTEND_DIST, "assets")), name="react-assets")
+
+# Override default ADK root redirect so the root URL opens our combined frontend
 for _i, _route in enumerate(app.routes):
     if getattr(_route, "path", None) == "/":
         app.routes.pop(_i)
@@ -110,9 +119,28 @@ for _i, _route in enumerate(app.routes):
 
 
 @app.get("/", response_class=HTMLResponse)
+async def get_root_app():
+    """Serves the combined React application if built, falling back to dashboard."""
+    react_index = os.path.join(FRONTEND_DIST, "index.html")
+    if os.path.exists(react_index):
+        with open(react_index, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    return await get_dashboard()
+
+
+@app.get("/app", response_class=HTMLResponse)
+async def get_react_app():
+    """Explicitly serves the combined React application."""
+    react_index = os.path.join(FRONTEND_DIST, "index.html")
+    if os.path.exists(react_index):
+        with open(react_index, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    return await get_dashboard()
+
+
 @app.get("/dashboard", response_class=HTMLResponse)
 async def get_dashboard():
-    """Serves the Grant Officer interactive decision dashboard."""
+    """Serves the standalone Grant Officer interactive decision dashboard."""
     template_path = os.path.join(AGENT_DIR, "app", "templates", "dashboard.html")
     if not os.path.exists(template_path):
         raise HTTPException(status_code=404, detail="Dashboard template not found.")

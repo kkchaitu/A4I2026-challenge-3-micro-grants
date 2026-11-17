@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   Bot, 
   Send, 
@@ -9,9 +9,32 @@ import {
   WifiOff,
   Wifi,
   RefreshCw,
-  ChevronDown
+  ChevronDown,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
+  AudioLines,
 } from 'lucide-react';
 import { sendAgentQuery, resetSession } from '../services/agentApi';
+
+// ─── Voice helpers ────────────────────────────────────────────────────────────
+const SpeechRecognition =
+  window.SpeechRecognition || window.webkitSpeechRecognition || null;
+
+/** Strip markdown so TTS doesn't read "hash hash Title" */
+function stripMarkdown(text) {
+  return text
+    .replace(/#{1,6}\s+/g, '')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/`{1,3}[^`]*`{1,3}/g, '')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/^[-*>]\s+/gm, '')
+    .replace(/\|.+\|/g, '')
+    .replace(/\n{2,}/g, '. ')
+    .trim();
+}
 
 export function AIAgentChat({
   corridor,
@@ -23,7 +46,7 @@ export function AIAgentChat({
     {
       id: 1,
       sender: 'agent',
-      text: `Hello! I am your Engine of Prosperity AI Agent for the **${corridor.name}** corridor.\n\nI use BigQuery Property Graph multi-hop GQL traversals to identify which businesses create the largest downstream job multiplier. Grant one engine, power a whole neighborhood.\n\nAsk me anything about applicants, supply chain network effects, or equity impact — or click a suggested prompt below.`,
+      text: `Hello! I am your Engine of Prosperity AI Agent for the **${corridor.name}** corridor.\n\nI use BigQuery Property Graph multi-hop GQL traversals to identify which businesses create the largest downstream job multiplier. Grant one engine, power a whole neighborhood.\n\nAsk me anything about applicants, supply chain network effects, or equity impact — or click a suggested prompt below, or tap the 🎙️ mic to speak.`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       toolCalls: [],
       live: false,
@@ -32,10 +55,95 @@ export function AIAgentChat({
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
 
+  // ── Voice input state ──────────────────────────────────────────────────────
+  const [isListening, setIsListening] = useState(false);
+  const [voiceError, setVoiceError] = useState(null);
+  const recognitionRef = useRef(null);
+
+  // ── Voice output state ─────────────────────────────────────────────────────
+  const [ttsEnabled, setTtsEnabled] = useState(true);
+  const [speakingMsgId, setSpeakingMsgId] = useState(null);
+  const utteranceRef = useRef(null);
+
+  // ── Speak an agent response ────────────────────────────────────────────────
+  const speak = useCallback((text, msgId) => {
+    if (!ttsEnabled || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(stripMarkdown(text));
+    utter.rate = 1.05;
+    utter.pitch = 1;
+    // Prefer a female English voice when available
+    const voices = window.speechSynthesis.getVoices();
+    const preferred = voices.find(v => /en.*female|samantha|victoria|karen|moira/i.test(v.name))
+      || voices.find(v => /en/i.test(v.lang));
+    if (preferred) utter.voice = preferred;
+    utter.onstart  = () => setSpeakingMsgId(msgId);
+    utter.onend    = () => setSpeakingMsgId(null);
+    utter.onerror  = () => setSpeakingMsgId(null);
+    utteranceRef.current = utter;
+    window.speechSynthesis.speak(utter);
+  }, [ttsEnabled]);
+
+  const stopSpeaking = useCallback(() => {
+    window.speechSynthesis?.cancel();
+    setSpeakingMsgId(null);
+  }, []);
+
+  // Stop TTS when component unmounts
+  useEffect(() => () => window.speechSynthesis?.cancel(), []);
+
+  // ── Voice recognition toggle ───────────────────────────────────────────────
+  const toggleListening = useCallback(() => {
+    if (!SpeechRecognition) {
+      setVoiceError('Speech recognition is not supported in this browser.');
+      return;
+    }
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+    setVoiceError(null);
+    const rec = new SpeechRecognition();
+    rec.lang = 'en-US';
+    rec.continuous = false;
+    rec.interimResults = true;
+
+    rec.onstart = () => setIsListening(true);
+
+    rec.onresult = (e) => {
+      const transcript = Array.from(e.results)
+        .map(r => r[0].transcript)
+        .join('');
+      setInput(transcript);
+      // Auto-send on final result
+      if (e.results[e.results.length - 1].isFinal) {
+        setIsListening(false);
+        // slight delay so state flushes
+        setTimeout(() => handleSendPromptRef.current(transcript), 100);
+      }
+    };
+
+    rec.onerror = (e) => {
+      setVoiceError(e.error === 'not-allowed'
+        ? 'Microphone permission denied. Please allow mic access and try again.'
+        : `Voice error: ${e.error}`);
+      setIsListening(false);
+    };
+
+    rec.onend = () => setIsListening(false);
+    recognitionRef.current = rec;
+    rec.start();
+  }, [isListening]);
+
   // Auto-scroll to bottom on new messages
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
+
+  // Keep a stable ref to handleSendPrompt so the voice callback can call it
+  // without stale closure issues.
+  const handleSendPromptRef = useRef(null);
 
   const suggestedPrompts = [
     {
@@ -60,6 +168,9 @@ export function AIAgentChat({
     const userText = (textToSend || input).trim();
     if (!userText || isTyping) return;
 
+    // Stop any in-progress TTS before sending a new message
+    stopSpeaking();
+
     const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const userMsg = { id: Date.now(), sender: 'user', text: userText, timestamp: ts, toolCalls: [] };
     setMessages(prev => [...prev, userMsg]);
@@ -70,10 +181,11 @@ export function AIAgentChat({
     const result = await sendAgentQuery(userText);
 
     if (result?.success && result.text) {
+      const msgId = Date.now() + 1;
       setMessages(prev => [
         ...prev,
         {
-          id: Date.now() + 1,
+          id: msgId,
           sender: 'agent',
           text: result.text,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -86,6 +198,7 @@ export function AIAgentChat({
         }
       ]);
       setIsTyping(false);
+      speak(result.text, msgId);
       return;
     }
 
@@ -122,10 +235,11 @@ export function AIAgentChat({
         agentResponse = `I analyzed your query against the **${corridor.name}** property graph (${corridor.businesses?.length ?? 0} businesses, BigQuery dataset: \`a4i_econ.corridor_graph\`).\n\nTo get the most relevant answer, try one of the suggested prompts above, or ask about:\n- **Top applicants** and their job multiplier scores\n- **Supply chain** keystone analysis\n- **GQL traversal** queries\n- **Equity** and demographic audit\n\n> ⚠️ Agent backend: ${agentOnline ? '🟢 ONLINE' : '🔴 OFFLINE — running in fallback mode'}`;
       }
 
+      const msgId = Date.now() + 1;
       setMessages(prev => [
         ...prev,
         {
-          id: Date.now() + 1,
+          id: msgId,
           sender: 'agent',
           text: agentResponse,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -134,8 +248,12 @@ export function AIAgentChat({
         }
       ]);
       setIsTyping(false);
+      speak(agentResponse, msgId);
     }, 600);
   };
+
+  // Keep the ref in sync with the latest closure
+  handleSendPromptRef.current = handleSendPrompt;
 
   const handleClearChat = () => {
     resetSession();
@@ -169,13 +287,27 @@ export function AIAgentChat({
           </div>
         </div>
 
-        <button
-          onClick={handleClearChat}
-          className="text-xs text-slate-400 hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-800 transition flex items-center gap-1"
-          title="New conversation"
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
-        </button>
+        <div className="flex items-center gap-1">
+          {/* TTS toggle */}
+          <button
+            onClick={() => { setTtsEnabled(v => !v); stopSpeaking(); }}
+            className={`text-xs p-1.5 rounded-lg transition flex items-center gap-1 ${
+              ttsEnabled
+                ? 'text-blue-400 hover:text-blue-300 hover:bg-slate-800'
+                : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
+            }`}
+            title={ttsEnabled ? 'Mute voice responses' : 'Enable voice responses'}
+          >
+            {ttsEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+          </button>
+          <button
+            onClick={handleClearChat}
+            className="text-xs text-slate-400 hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-800 transition flex items-center gap-1"
+            title="New conversation"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
 
       {/* Suggested Prompts Banner */}
@@ -199,6 +331,7 @@ export function AIAgentChat({
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((m) => {
           const isAgent = m.sender === 'agent';
+          const isSpeaking = speakingMsgId === m.id;
           return (
             <div
               key={m.id}
@@ -247,9 +380,31 @@ export function AIAgentChat({
                   </div>
                 ))}
 
-                <span className="text-[9px] text-slate-500 font-mono block px-1">
-                  {m.timestamp}{m.live ? ' · live agent' : ''}
-                </span>
+                <div className="flex items-center gap-2 px-1">
+                  <span className="text-[9px] text-slate-500 font-mono">
+                    {m.timestamp}{m.live ? ' · live agent' : ''}
+                  </span>
+                  {/* Per-message TTS controls */}
+                  {isAgent && (
+                    isSpeaking ? (
+                      <button
+                        onClick={stopSpeaking}
+                        className="flex items-center gap-1 text-[9px] text-blue-400 hover:text-blue-300 font-mono"
+                        title="Stop speaking"
+                      >
+                        <AudioLines className="w-3 h-3 animate-pulse" /> speaking…
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => speak(m.text, m.id)}
+                        className="text-[9px] text-slate-500 hover:text-slate-300 font-mono flex items-center gap-1"
+                        title="Read aloud"
+                      >
+                        <Volume2 className="w-3 h-3" /> read
+                      </button>
+                    )
+                  )}
+                </div>
               </div>
             </div>
           );
@@ -267,6 +422,14 @@ export function AIAgentChat({
         <div ref={bottomRef} />
       </div>
 
+      {/* Voice error banner */}
+      {voiceError && (
+        <div className="px-4 py-2 bg-red-950/60 border-t border-red-800/60 text-[11px] text-red-300 flex items-center justify-between gap-2">
+          <span>⚠️ {voiceError}</span>
+          <button onClick={() => setVoiceError(null)} className="text-red-400 hover:text-red-200">✕</button>
+        </div>
+      )}
+
       {/* Input Form */}
       <form
         onSubmit={(e) => { e.preventDefault(); handleSendPrompt(); }}
@@ -277,9 +440,39 @@ export function AIAgentChat({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           disabled={isTyping}
-          placeholder={`Ask the agent about ${corridor.name} grants, supply chains, or GQL queries…`}
-          className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+          placeholder={isListening ? '🎙️ Listening… speak now' : `Ask about ${corridor.name} grants, supply chains, or GQL queries…`}
+          className={`flex-1 bg-slate-900 border rounded-xl px-3.5 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none disabled:opacity-50 transition ${
+            isListening
+              ? 'border-red-500 shadow-[0_0_0_2px_rgba(239,68,68,0.25)] placeholder-red-400'
+              : 'border-slate-700 focus:border-blue-500'
+          }`}
         />
+
+        {/* Mic button */}
+        {SpeechRecognition && (
+          <button
+            type="button"
+            onClick={toggleListening}
+            disabled={isTyping}
+            className={`p-2 rounded-xl transition disabled:opacity-40 disabled:cursor-not-allowed relative ${
+              isListening
+                ? 'bg-red-600 hover:bg-red-500 text-white shadow-[0_0_12px_rgba(239,68,68,0.5)]'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+            }`}
+            title={isListening ? 'Stop listening' : 'Speak your query'}
+          >
+            {isListening ? (
+              <>
+                <MicOff className="w-4 h-4" />
+                {/* Pulsing ring */}
+                <span className="absolute inset-0 rounded-xl animate-ping bg-red-500/30 pointer-events-none" />
+              </>
+            ) : (
+              <Mic className="w-4 h-4" />
+            )}
+          </button>
+        )}
+
         <button
           type="submit"
           disabled={isTyping || !input.trim()}

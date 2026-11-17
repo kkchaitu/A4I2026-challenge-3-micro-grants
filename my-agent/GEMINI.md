@@ -1,4 +1,11 @@
-# Coding Agent Guide
+# Coding Agent Guide - Engine of Prosperity (Custom Track)
+
+## Context & Track Information
+* **Track**: Engine of Prosperity (Custom Track for Agents for Impact 2026).
+* **Persona**: Economic Development Director making defensible grant decisions to maximize downstream job creation.
+* **Model**: Always use `gemini-3.8-flash`. Region must be `global` (`GOOGLE_CLOUD_LOCATION=global`, `GOOGLE_GENAI_USE_ENTERPRISE=true`).
+* **BigQuery Property Graph**: `a4i_econ.corridor_graph` declared over `a4i_econ.businesses`, `a4i_econ.employer_blocks`, `a4i_econ.supplies`, and `a4i_econ.draws_footfall_from`.
+* **Deployment**: Deploy via `./deploy.sh` to Google Cloud Run or via `agents-cli deploy` to Agent Runtime.
 
 ## Prerequisites
 

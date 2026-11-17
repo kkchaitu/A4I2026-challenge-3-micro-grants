@@ -4,9 +4,16 @@ This document outlines how the data and agent lanes will calculate the four key 
 
 ## 1. ROI Metrics (Job Creation & Cost)
 **Goal:** Estimate direct jobs and calculate the downstream employment multiplier.
+**Status:** **Implemented & Active in BigQuery**
 **How to collect:**
-1.  **Direct Jobs:** Execute a SQL script to geographically allocate jobs from the `employer_blocks` table to the `businesses` table based on proximity. This creates a baseline `estimated_jobs` attribute for every business.
-2.  **Indirect Jobs (Multiplier):** Create the BigQuery Property Graph. The agent runs a backward GQL traversal `MATCH p = (applicant:Business)<-[s:Supplies]-{1,3}(supplier:Business)`. The tool calculates indirect jobs by summing the `estimated_jobs` of the suppliers, weighted by the `intensity` of the supply edge.
+1.  **Direct Jobs:** The baseline `estimated_jobs` attribute is already populated on every business in `a4i_econ.businesses`.
+2.  **Indirect Jobs (Multiplier):** The BigQuery Property Graph `a4i_econ.corridor_graph` is created and live. The agent runs a backward GQL traversal:
+    ```sql
+    GRAPH a4i_econ.corridor_graph
+      MATCH p = (engine:Business {business_id: @applicant_id})<-[s:Supplies]-{1,3}(supplier:Business)
+      RETURN engine.name, supplier.name, supplier.business_id, supplier.estimated_jobs
+    ```
+    The tool calculates indirect jobs by summing the `estimated_jobs` of the suppliers.
 3.  **Cost per Job:** The agent takes the proposed grant amount and divides it by (Direct Jobs + Indirect Jobs).
 
 ## 2. Equity Metrics (Need Targeting)

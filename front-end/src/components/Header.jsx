@@ -2,14 +2,15 @@ import React from 'react';
 import { 
   Building2, 
   Network, 
-  MapPin,
+  MapPin, 
   FileText, 
   SlidersHorizontal, 
   Bot, 
   ShieldCheck, 
   DollarSign, 
   Layers,
-  Sparkles
+  Sparkles,
+  Award
 } from 'lucide-react';
 
 export function Header({
@@ -145,6 +146,7 @@ export function Header({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex space-x-1 border-t border-slate-800/80 overflow-x-auto py-1">
         {[
           { id: 'live-queue', label: 'Grant Decision Queue', icon: Sparkles, badge: 'Live GQL' },
+          { id: 'judges-scoring', label: 'Judges Rubric & Scoring', icon: Award, badge: '103/110' },
           { id: 'funding-queue', label: 'Strategy Optimizer', icon: Layers },
           { id: 'network-graph', label: 'Cascade Network Graph', icon: Network },
           { id: 'map-view', label: 'Google Map & Geospatial View', icon: MapPin },

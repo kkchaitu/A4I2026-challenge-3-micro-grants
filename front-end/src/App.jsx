@@ -16,6 +16,7 @@ import { WhatIfSimulator } from './components/WhatIfSimulator';
 import { AIAgentChat } from './components/AIAgentChat';
 import { EquityDemographics } from './components/EquityDemographics';
 import { LiveGrantQueue } from './components/LiveGrantQueue';
+import { JudgesScorecard } from './components/JudgesScorecard';
 
 export function App() {
   const [activeCorridorId, setActiveCorridorId] = useState('central-market');
@@ -169,6 +170,12 @@ export function App() {
               setActiveTab('map-view');
             }}
             onSelectBusinessForMemo={handleSelectBusinessForMemo}
+          />
+        )}
+
+        {activeTab === 'judges-scoring' && (
+          <JudgesScorecard
+            onNavigateTab={(tabId) => setActiveTab(tabId)}
           />
         )}
 

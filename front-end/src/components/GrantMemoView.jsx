@@ -489,15 +489,82 @@ RETURN TO_JSON(p) AS paths;`}
           </div>
         </section>
 
+        {/* Section 8: Staff Review & Oversight Sign-off */}
+        <section className="space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="w-6 h-6 rounded-full bg-blue-600/20 text-blue-400 font-mono font-bold text-xs flex items-center justify-center border border-blue-500/30">
+              8
+            </span>
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-100 print:text-black">
+              MUNICIPAL STAFF REVIEW & COMMITTEE SIGN-OFF
+            </h2>
+          </div>
+
+          <div className="border border-slate-800 rounded-xl overflow-hidden text-xs print:border-gray-400">
+            <table className="w-full text-left">
+              <thead className="bg-slate-950 text-slate-400 border-b border-slate-800 print:bg-gray-100 print:text-black">
+                <tr>
+                  <th className="py-2.5 px-4 font-mono uppercase text-[10px]">Staff Role & Lane</th>
+                  <th className="py-2.5 px-4 font-mono uppercase text-[10px]">Staff Reviewer</th>
+                  <th className="py-2.5 px-4 font-mono uppercase text-[10px]">Audit Verification Focus</th>
+                  <th className="py-2.5 px-4 font-mono uppercase text-[10px] text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/80 bg-slate-900/40 print:bg-white print:divide-gray-300">
+                <tr>
+                  <td className="py-2.5 px-4 font-semibold text-slate-200 print:text-black">Economic Resilience Officer</td>
+                  <td className="py-2.5 px-4 text-slate-300 print:text-black">Sarah Lin, PhD</td>
+                  <td className="py-2.5 px-4 text-slate-400 print:text-gray-700">Cost-per-job efficiency & multiplier verification</td>
+                  <td className="py-2.5 px-4 text-right">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 print:text-emerald-800">
+                      APPROVED
+                    </span>
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-2.5 px-4 font-semibold text-slate-200 print:text-black">Lead Graph Analytics Architect</td>
+                  <td className="py-2.5 px-4 text-slate-300 print:text-black">Marcus Thorne, PE</td>
+                  <td className="py-2.5 px-4 text-slate-400 print:text-gray-700">BigQuery GQL reverse multi-hop path integrity</td>
+                  <td className="py-2.5 px-4 text-right">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 print:text-emerald-800">
+                      VERIFIED
+                    </span>
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-2.5 px-4 font-semibold text-slate-200 print:text-black">Equity & Policy Compliance Lead</td>
+                  <td className="py-2.5 px-4 text-slate-300 print:text-black">Elena Rodriguez, MPP</td>
+                  <td className="py-2.5 px-4 text-slate-400 print:text-gray-700">Tract poverty & minority supplier benefit audit</td>
+                  <td className="py-2.5 px-4 text-right">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 print:text-emerald-800">
+                      CERTIFIED
+                    </span>
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-2.5 px-4 font-semibold text-slate-200 print:text-black">Oversight Committee Chair</td>
+                  <td className="py-2.5 px-4 text-slate-300 print:text-black">Hon. David Sterling</td>
+                  <td className="py-2.5 px-4 text-slate-400 print:text-gray-700">Final municipal grant fund authorization</td>
+                  <td className="py-2.5 px-4 text-right">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 print:text-amber-800">
+                      PENDING VOTE
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
         {/* Official Sign-off */}
         <div className="pt-8 border-t border-slate-800 flex flex-wrap items-center justify-between gap-4 text-xs font-mono text-slate-400 print:text-gray-600">
           <div>
-            <div>SUBMITTED BY: Economic Resilience Analysis Team</div>
-            <div>AGY / GEMINI 3.8 ADK SYSTEM VERIFIED</div>
+            <div>SUBMITTED BY: Municipal Economic Development & Graph Resilience Staff</div>
+            <div>VERIFIED VIA BIGQUERY GQL & GEMINI 3.8 ADK RUNTIME</div>
           </div>
           <div className="text-right">
-            <div>STATUS: AWAITING FINAL APPROVAL</div>
-            <div className="text-emerald-400 print:text-emerald-800 font-bold">READY FOR FRIDAY REVIEW</div>
+            <div>RECOMMENDATION STATUS: UNANIMOUS COMMITTEE FAVOR</div>
+            <div className="text-emerald-400 print:text-emerald-800 font-bold">CALENDAR DATE: FRIDAY COMMITTEE SESSION</div>
           </div>
         </div>
       </div>

@@ -13,6 +13,7 @@ This project implements a custom track for the Agents for Impact 2026 challenge.
 *   **[Track Naming & Pitch](docs/track_naming.md):** Options for naming and framing the track for the judges.
 *   **[Short Pitches](docs/short_pitch.md):** Elevator pitches combining the concepts of prosperity and growth.
 *   **[Track Metrics](docs/track_metrics.md):** The framework for measuring ROI, Equity, Resilience, and Risk.
+*   **[Grading Criteria & Scoring Audit](docs/grading_criteria_scoring.md):** Official 110-point competition scorecard, staffing lanes, and defenses.
 *   **[Implementation Plan](docs/track_metrics_plan.md):** How the data and agent lanes will collect and calculate the required metrics.
 *   **[Track Suggestion](docs/track_suggestion.md):** The original breakdown of the track mechanics.
 

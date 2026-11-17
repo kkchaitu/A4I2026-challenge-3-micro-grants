@@ -181,12 +181,18 @@ class RequestsStore:
         return summaries
 
     def get_request(self, request_id: str) -> Optional[Dict[str, Any]]:
-        """Returns full request record including report and memo."""
-        return self._requests.get(request_id)
+        """Returns full request record including report and memo, matching by request_id or business_id."""
+        if request_id in self._requests:
+            return self._requests[request_id]
+        # Fallback check by business_id (e.g. "114", "cm-01", etc.)
+        for req in self._requests.values():
+            if str(req.get("business_id")) == str(request_id):
+                return req
+        return None
 
     def get_dossier(self, request_id: str) -> Optional[Dict[str, Any]]:
         """Returns the structured committee pitch dossier and chart datasets."""
-        req = self._requests.get(request_id)
+        req = self.get_request(request_id)
         if not req:
             return None
         return req.get("report", {}).get("dossier")

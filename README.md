@@ -1,3 +1,113 @@
+# 🏛️ Engine of Prosperity: Autonomous Resilience & Micro-Grant Allocation Agent
+
+> **Agents for Impact 2026 — Custom Track Entry**  
+> **Target Persona**: Municipal Economic Development Director (OEWD / Community Resilience Office)  
+> **Objective**: Maximize localized, multi-tier employment retention per micro-grant dollar by funding *economic engines* rather than terminal distress leaves.
+
+---
+
+### 🚀 Live Deployments & Quick Links
+- **🌐 Public Web UI (Cloud Run)**: [https://my-agent-ie5pmvccxq-uc.a.run.app/](https://my-agent-ie5pmvccxq-uc.a.run.app/) *(Direct Link: [Cloud Run Direct](https://my-agent-982712366919.us-central1.run.app/))*
+- **📄 Standalone Pitch Dossier (HTML Demo)**: [https://my-agent-982712366919.us-central1.run.app/report/REQ-2026-001](https://my-agent-982712366919.us-central1.run.app/report/REQ-2026-001)
+- **🤖 ADK Agent Playground**: [https://my-agent-ie5pmvccxq-uc.a.run.app/dev-ui/?app=app](https://my-agent-ie5pmvccxq-uc.a.run.app/dev-ui/?app=app)
+- **⚡ Vertex AI Reasoning Engine**: `projects/982712366919/locations/us-east1/reasoningEngines/2762033682112839680`
+- **🧠 Active LLM**: `gemini-3.8-flash` via Google Agent Development Kit (ADK) & Vertex AI Enterprise
+
+---
+
+## 💡 The Core Thesis: "Flip the Script"
+
+Conventional municipal relief ranks applicants by **acute distress** (lowest cash reserves, highest footfall loss). While well-intentioned, this approach inadvertently funnels scarce taxpayer capital into isolated, terminal storefronts (leaf nodes) that provide no broader economic lift.
+
+**Engine of Prosperity flips the script**: We fund **economic engines**—businesses whose procurement spend flows backward into a dense web of local suppliers. By directing micro-grants to an engine experiencing localized expansion or recovery, the grant unleashes a **downstream multiplier effect**, sustaining dozens of dependent supplier jobs that naive ranking leaves invisible.
+
+### 🔬 Key Technical Differentiators Addressed
+
+| Hackathon Rubric Challenge | Our Solution & Implementation |
+|---|---|
+| **"Per-business employment is not published"** | **Geographic LEHD Block Allocation**: We geographically partitioned Census LEHD `employer_blocks` worker counts to nearest registered `businesses`, creating an `estimated_jobs` baseline for calculating empirical job footprints. |
+| **"Multi-hop graph traversal, not just 1 hop"** | **Reverse GQL Traversal (`{1,3}`)**: Uses BigQuery Property Graph `a4i_econ.corridor_graph` with `MATCH (engine)<-[:Supplies]-{1,3}(supplier)` to capture indirect suppliers across 3 tiers. |
+| **"Ground truth: SBA charge-off records"** | **SBA 7(a) Default Audit**: Queries `a4i_econ.borrowed_from` for `charged_off = true` across the applicant's upstream supplier network, penalizing fragile supply links. |
+| **"When does your agent NOT fund the biggest hub?"** | **Hub Exclusion Policy**: The agent penalizes or disqualifies high-degree hubs if: (1) upstream suppliers exhibit high SBA charge-off rates (>20%), or (2) procurement leaks out of the corridor to national corporate vendors. |
+| **"Why this applicant and not the runner-up?"** | **Counterfactual Defense Dossier**: Each applicant memo includes an explicit head-to-head comparison against the naive distress runner-up (e.g. *Grove Street Books*), proving $10\times+$ greater job protection per dollar. |
+
+---
+
+## 📊 Rigor & Data Transparency Matrix
+
+As required by the judging rubric, we explicitly distinguish between ground truth and modeled attributes:
+
+| Layer | Source / Method | Status | Purpose |
+|---|---|:---:|---|
+| **Business Locations** | SF Open Data Registered Business Locations | **REAL** | Ground truth physical entities along Central Market corridor |
+| **Employment Counts** | Census LEHD `employer_blocks` allocated by spatial distance | **MODELED** | Defensible proxy solving the unpublished small business employment challenge |
+| **Supply Chain Edges** | BEA 2026 Input-Output Matrix + Spatial Gravity Decay | **MODELED** | Inter-firm procurement linkages (`Supplies`, `DrawsFootfall`) |
+| **Credit Risk & Defaults** | SBA 7(a) / PPP Loan Discharge & Charge-off records | **REAL** | Ground truth insolvency signals in `a4i_econ.borrowed_from` |
+| **Tract Poverty & Equity** | US Census ACS 5-Year Tract Demographics + HUD QCT | **REAL** | Equity targeting ensuring funds flow to high-poverty neighborhoods |
+
+---
+
+## 📐 The Reverse GQL Traversal Pattern
+
+Because the `Supplies` relationship points `Supplier -> Buyer`, an expanding or stabilized buyer stimulates economic security **backward** against the edge direction:
+
+```sql
+SELECT * FROM GRAPH_TABLE(a4i_econ.corridor_graph
+  MATCH (engine:Business {business_id: @business_id})<-[s:Supplies]-{1,3}(supplier:Business)
+  COLUMNS (
+    engine.name AS engine_name,
+    supplier.name AS supplier_name,
+    supplier.business_id AS supplier_id,
+    supplier.naics AS supplier_naics,
+    supplier.estimated_jobs AS supplier_estimated_jobs
+  )
+)
+```
+
+---
+
+## 🏛️ Full System Architecture
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                          Unified Decision Cockpit                      │
+│   (Vite + React 19 + Tailwind CSS + Lucide Icons + Chart.js Proof)     │
+└───────────────┬────────────────────────────────────────┬───────────────┘
+                │                                        │
+                ▼                                        ▼
+┌───────────────────────────────────┐    ┌───────────────────────────────┐
+│       FastAPI Backend API         │    │   Vertex AI ADK Agent UI      │
+│  /api/requests  /report/{id}      │    │   gemini-3.8-flash Reasoning  │
+└───────────────┬───────────────────┘    └───────────────┬───────────────┘
+                │                                        │
+                ▼                                        ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                  BigQuery Property Graph Engine                        │
+│                     `a4i_econ.corridor_graph`                          │
+│                                                                        │
+│   Nodes: Businesses, Employer Blocks                                   │
+│   Edges: Supplies, DrawsFootfallFrom                                   │
+│   Ground Truth: `borrowed_from` (SBA charge-offs), `tract_demographics`│
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🛡️ Graph Validation Suite
+Run the automated validation suite before building or modifying graph topology:
+```bash
+bq query --use_legacy_sql=false < scripts/validate_graph.sql
+```
+Validates:
+1. Node key uniqueness on `businesses` and `employer_blocks` (prevents path multiplication traps).
+2. Edge key uniqueness on `supplies` and `draws_footfall_from`.
+3. Referential integrity (no dangling source/destination foreign keys).
+4. Self-loop and invalid distance detection.
+
+---
+
+# Original Challenge Description
+
 # Challenge 3—Community Economic Resilience & Micro-Grants
 
 **Agents for Impact 2026**

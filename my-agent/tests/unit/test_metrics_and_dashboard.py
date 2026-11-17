@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import unittest
 from fastapi.testclient import TestClient
 
@@ -164,6 +165,52 @@ class TestMetricsAndDashboard(unittest.TestCase):
         self.assertIn("chart.js", html_resp.text.lower())
         self.assertIn("OFFICIAL COMMITTEE PITCH DOSSIER", html_resp.text)
         self.assertIn("Visual Proof of Economic Multiplier", html_resp.text)
+
+    def test_multistage_copilot_tools(self):
+        """Verifies that all 6 granular multi-stage tools callable by the conversational copilot return valid data."""
+        from app.agent import (
+            traverse_upstream_supply_chain,
+            model_direct_and_cascade_jobs,
+            audit_tract_equity_and_poverty,
+            scan_upstream_sba_chargeoffs,
+            evaluate_counterfactual_comparison,
+            compile_committee_pitch_deck
+        )
+
+        biz_id = "114"
+
+        # Stage 1: GQL Traversal
+        s1 = json.loads(traverse_upstream_supply_chain(biz_id))
+        self.assertEqual(s1["stage"], "STAGE_1_GRAPH_TRAVERSAL")
+        self.assertGreater(s1["upstream_suppliers_count"], 0)
+
+        # Stage 2: LEHD Job Modeling
+        s2 = json.loads(model_direct_and_cascade_jobs(biz_id, grant_amount=50000))
+        self.assertEqual(s2["stage"], "STAGE_2_EMPLOYMENT_MODELING")
+        self.assertGreaterEqual(s2["total_community_job_footprint"], s2["direct_jobs"])
+        self.assertGreater(s2["net_cost_per_job_saved"], 0)
+
+        # Stage 3: Tract Equity Audit
+        s3 = json.loads(audit_tract_equity_and_poverty(biz_id))
+        self.assertEqual(s3["stage"], "STAGE_3_TRACT_EQUITY_AUDIT")
+        self.assertTrue("poverty" in s3["neighborhood_poverty_rate"].lower() or "%" in s3["neighborhood_poverty_rate"])
+
+        # Stage 4: SBA Fragility Scan
+        s4 = json.loads(scan_upstream_sba_chargeoffs(biz_id))
+        self.assertEqual(s4["stage"], "STAGE_4_SBA_FRAGILITY_SCAN")
+        self.assertIn("solvency_status", s4)
+
+        # Stage 5: Counterfactual Defense
+        s5 = json.loads(evaluate_counterfactual_comparison(biz_id, grant_amount=50000))
+        self.assertEqual(s5["stage"], "STAGE_5_COUNTERFACTUAL_RUNNER_UP_DEFENSE")
+        self.assertIn("naive_distress_runner_up", s5)
+        self.assertIn("hub_exclusion_rule", s5)
+
+        # Stage 6: Committee Pitch Deck
+        s6 = json.loads(compile_committee_pitch_deck(biz_id, grant_amount=50000))
+        self.assertEqual(s6["stage"], "STAGE_6_PITCH_DECK_ASSEMBLY")
+        self.assertEqual(len(s6["slides"]), 5)
+        self.assertIn("official_roll_call_motion", s6)
 
 
 if __name__ == "__main__":

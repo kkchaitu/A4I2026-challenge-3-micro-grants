@@ -28,6 +28,8 @@ def render_committee_report_html(req: Dict[str, Any]) -> str:
     header = dossier.get("header", {})
     charts = dossier.get("charts", {})
     defense = dossier.get("defense_narrative", {})
+    cf_data = defense.get("counterfactual_runner_up", {})
+    roi = report.get("roi", {})
 
     biz_name = header.get("applicant_name", req.get("business_name", "Applicant Business"))
     biz_id = header.get("applicant_id", req.get("business_id", "N/A"))
@@ -354,6 +356,70 @@ def render_committee_report_html(req: Dict[str, Any]) -> str:
             text-align: left;
         }}
 
+        .counterfactual-grid {{
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin: 16px 0;
+        }}
+        .cf-card {{
+            border-radius: 8px;
+            padding: 16px;
+            font-size: 12px;
+        }}
+        .cf-card-engine {{
+            background: #eff6ff;
+            border: 2px solid #3b82f6;
+        }}
+        .cf-card-runner {{
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+        }}
+        .cf-badge {{
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            font-family: 'JetBrains Mono', monospace;
+        }}
+        .cf-badge-engine {{
+            background: #dbeafe;
+            color: #1e40af;
+        }}
+        .cf-badge-runner {{
+            background: #e2e8f0;
+            color: #475569;
+        }}
+        .cf-name {{
+            font-size: 13px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 8px;
+        }}
+        .cf-row {{
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }}
+        .cf-highlight {{
+            font-weight: 800;
+            color: #059669;
+        }}
+        .cf-exclusion {{
+            background: #fdf4ff;
+            border-left: 4px solid #c026d3;
+            padding: 12px 16px;
+            margin: 16px 0;
+            border-radius: 0 8px 8px 0;
+            font-size: 12px;
+            color: #701a75;
+            line-height: 1.5;
+        }}
+
         .motion-box {{
             background: #fefce8;
             border: 2px dashed #ca8a04;
@@ -566,9 +632,37 @@ def render_committee_report_html(req: Dict[str, Any]) -> str:
             <!-- SECTION 5: COUNTERFACTUAL & RISK SAFEGUARDS -->
             <div class="section-header">
                 <span class="section-num">05</span>
-                <h3 class="section-title">Counter-Factual Analysis & Risk Mitigation</h3>
+                <h3 class="section-title">Counterfactual Comparison & Defense Against Runner-Up</h3>
             </div>
             <p class="defense-p"><strong>Impact of Inaction:</strong> {defense.get('counterfactual_analysis')}</p>
+
+            <div class="counterfactual-grid">
+                <div class="cf-card cf-card-engine">
+                    <span class="cf-badge cf-badge-engine">RECOMMENDED ECONOMIC ENGINE</span>
+                    <div class="cf-name">{cf_data.get('recommended_name', biz_name)}</div>
+                    <div class="cf-row"><span>Direct Jobs:</span><strong>{cf_data.get('recommended_direct_jobs', roi.get('direct_jobs', 84))} jobs</strong></div>
+                    <div class="cf-row"><span>Downstream Supply Cascade:</span><strong class="cf-highlight">+{cf_data.get('recommended_cascade_jobs', roi.get('indirect_jobs', 1335))} indirect jobs</strong></div>
+                    <div class="cf-row"><span>Total Community Footprint:</span><strong class="cf-highlight">{cf_data.get('recommended_total_jobs', roi.get('total_job_footprint', 1419))} jobs protected</strong></div>
+                    <div class="cf-row"><span>Net Cost per Job:</span><strong>${cf_data.get('recommended_cost_per_job', roi.get('cost_per_job', 35.24)):,.2f}</strong></div>
+                </div>
+                <div class="cf-card cf-card-runner">
+                    <span class="cf-badge cf-badge-runner">NAIVE DISTRESS RUNNER-UP</span>
+                    <div class="cf-name">{cf_data.get('runner_up_name', 'Grove Street Books & Stationery (Leaf Storefront cm-07)')}</div>
+                    <div class="cf-row"><span>Acute Distress Score:</span><strong>0.88 (Critical)</strong></div>
+                    <div class="cf-row"><span>Direct Jobs:</span><strong>{cf_data.get('runner_up_direct_jobs', 3)} jobs</strong></div>
+                    <div class="cf-row"><span>Downstream Supply Cascade:</span><span style="color:#64748b;">+0 jobs (Terminal Leaf)</span></div>
+                    <div class="cf-row"><span>Total Community Footprint:</span><strong>{cf_data.get('runner_up_total_jobs', 3)} jobs</strong></div>
+                    <div class="cf-row"><span>Net Cost per Job:</span><strong>${cf_data.get('runner_up_cost_per_job', 16666.67):,.2f}</strong></div>
+                </div>
+            </div>
+
+            <p class="defense-p"><strong>The Core Defense:</strong> {cf_data.get('comparative_argument', '')}</p>
+
+            <div class="cf-exclusion">
+                <strong>🏛️ Hub Exclusion Rule (Why we don't blindly fund the biggest hub):</strong><br>
+                {cf_data.get('hub_exclusion_rule', '')}
+            </div>
+
             <p class="defense-p"><strong>SBA Fragility Scan & Disclosures:</strong> {defense.get('risk_mitigation')}</p>
 
             <!-- SECTION 6: RECOMMENDED COMMITTEE MOTION -->

@@ -15,10 +15,13 @@
 import contextlib
 import os
 from collections.abc import AsyncIterator
+from typing import Optional
 
 from a2a.server.tasks import InMemoryTaskStore
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from pydantic import BaseModel
 from google.adk.cli.fast_api import get_fast_api_app
 from google.adk.runners import Runner
 
@@ -27,6 +30,8 @@ from app.app_utils.a2a import attach_a2a_routes
 from app.app_utils.reasoning_engine_adapter import (
     attach_reasoning_engine_routes,
 )
+from app.requests_store import store
+from app.metrics_service import calculate_applicant_metrics
 
 load_dotenv()
 allow_origins = (
@@ -71,12 +76,73 @@ app: FastAPI = get_fast_api_app(
     otel_to_cloud=otel_to_cloud,
     lifespan=lifespan,
 )
-app.title = "my-agent"
-app.description = "API for interacting with the Agent my-agent"
+app.title = "Engine of Prosperity - Grant Decision Agent"
+app.description = "API and Dashboard for Economic Resilience and Micro-Grants Decision Support"
 
 # Proxy routes so the Google Cloud console playground (reasoning_engine SDK) can
 # talk to this agent alongside the native adk_api routes.
 attach_reasoning_engine_routes(app)
+
+
+# --- GRANT OFFICER UI & APPLICATION QUEUE ROUTES ---
+
+class CreateApplicationInput(BaseModel):
+    business_id: str
+    grant_amount: int
+    purpose: str
+    business_name: Optional[str] = None
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def get_dashboard():
+    """Serves the Grant Officer interactive decision dashboard."""
+    template_path = os.path.join(AGENT_DIR, "app", "templates", "dashboard.html")
+    if not os.path.exists(template_path):
+        raise HTTPException(status_code=404, detail="Dashboard template not found.")
+    with open(template_path, "r", encoding="utf-8") as f:
+        return HTMLResponse(content=f.read())
+
+
+@app.get("/api/requests")
+async def list_requests():
+    """Returns all incoming grant requests with summary metrics and ratings."""
+    return store.list_requests()
+
+
+@app.get("/api/requests/{request_id}")
+async def get_request(request_id: str):
+    """Returns the full report, 4-pillar breakdown, supplier network, and agent memo."""
+    req = store.get_request(request_id)
+    if not req:
+        raise HTTPException(status_code=404, detail=f"Application {request_id} not found.")
+    return req
+
+
+@app.post("/api/requests/{request_id}/evaluate")
+async def evaluate_request(request_id: str):
+    """Re-runs graph traversal & metrics calculation, refreshing the grant memo."""
+    req = store.evaluate_request(request_id)
+    if not req:
+        raise HTTPException(status_code=404, detail=f"Application {request_id} not found.")
+    return req
+
+
+@app.post("/api/requests")
+async def create_request(payload: CreateApplicationInput):
+    """Submits a new grant application and evaluates it immediately."""
+    new_req = store.create_request(
+        business_id=payload.business_id,
+        grant_amount=payload.grant_amount,
+        purpose=payload.purpose,
+        business_name=payload.business_name,
+    )
+    return new_req
+
+
+@app.get("/api/metrics/{business_id}")
+async def get_metrics(business_id: str, amount: int = 50000, purpose: str = "Expansion"):
+    """Direct lookup of 4-pillar metrics for any business ID in the corridor."""
+    return calculate_applicant_metrics(business_id, amount, purpose)
 
 
 # Main execution

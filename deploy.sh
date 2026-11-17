@@ -47,5 +47,6 @@ SERVICE_URL=$(gcloud run services describe "$SERVICE_NAME" --project="$PROJECT_I
 echo "============================================================"
 echo "✅ Deployment Successful!"
 echo "🌐 Service URL: $SERVICE_URL"
-echo "🎮 Web UI:      $SERVICE_URL/dev-ui/?app=app"
+echo "🎮 Grant Officer Dashboard: $SERVICE_URL/dashboard"
+echo "⚙️  ADK Dev Playground:     $SERVICE_URL/dev-ui/?app=app"
 echo "============================================================"

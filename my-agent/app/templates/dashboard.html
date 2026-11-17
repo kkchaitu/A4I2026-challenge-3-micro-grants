@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Engine of Prosperity - Grant Officer Dashboard</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Alpine.js for lightweight reactivity -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen" x-data="dashboardApp()" x-init="initData()">
+
+  <!-- Top Navigation -->
+  <nav class="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-30 shadow-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="h-9 w-9 rounded-lg bg-emerald-500 flex items-center justify-center font-bold text-slate-950 text-xl shadow-inner">
+          ⚡
+        </div>
+        <div>
+          <div class="font-bold text-lg leading-tight flex items-center gap-2">
+            Engine of Prosperity
+            <span class="text-xs bg-emerald-950 border border-emerald-500/40 text-emerald-300 px-2 py-0.5 rounded-full font-medium">ADK Agent Active</span>
+          </div>
+          <div class="text-xs text-slate-400">Micro-Grants & Economic Resilience Decision Support • Corridor: <span class="text-slate-200 font-semibold">Central Market, SF</span></div>
+        </div>
+      </div>
+      <div class="flex items-center space-x-3">
+        <a href="/dev-ui/?app=app" target="_blank" class="text-xs text-slate-300 hover:text-white px-3 py-1.5 rounded-md border border-slate-700 hover:bg-slate-800 transition">
+          ADK Dev Playground ↗
+        </a>
+        <button @click="openNewRequestModal = true" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-3.5 py-1.5 rounded-lg shadow flex items-center gap-1.5 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+          New Grant Application
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- Corridor Summary KPI Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Incoming Requests</div>
+        <div class="text-2xl font-bold text-slate-900 mt-1" x-text="requests.length">0</div>
+        <div class="text-xs text-emerald-600 font-medium mt-1">Ready for Grant Officer review</div>
+      </div>
+
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Requested Funds</div>
+        <div class="text-2xl font-bold text-slate-900 mt-1" x-text="formatCurrency(totalRequestedAmount)">$0</div>
+        <div class="text-xs text-slate-500 mt-1">Average grant: <span class="font-medium text-slate-700" x-text="formatCurrency(avgGrantAmount)">$0</span></div>
+      </div>
+
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Avg Indirect Multiplier</div>
+        <div class="text-2xl font-bold text-emerald-600 mt-1" x-text="avgMultiplier + 'x'">0x</div>
+        <div class="text-xs text-slate-500 mt-1">Total jobs leveraged per direct job</div>
+      </div>
+
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Avg Cost per Job</div>
+        <div class="text-2xl font-bold text-blue-600 mt-1" x-text="formatCurrency(avgCostPerJob)">$0</div>
+        <div class="text-xs text-slate-500 mt-1">Direct + indirect jobs created/protected</div>
+      </div>
+    </div>
+
+    <!-- Toolbar & Filter Controls -->
+    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div class="flex items-center gap-2">
+        <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Filter Recommendation:</span>
+        <button @click="filterRating = 'ALL'" :class="filterRating === 'ALL' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="text-xs px-3 py-1.5 rounded-lg font-medium transition">
+          All (<span x-text="requests.length"></span>)
+        </button>
+        <button @click="filterRating = 'STRONGLY RECOMMEND'" :class="filterRating === 'STRONGLY RECOMMEND' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="text-xs px-3 py-1.5 rounded-lg font-medium transition">
+          Strongly Recommend
+        </button>
+        <button @click="filterRating = 'RECOMMEND'" :class="filterRating === 'RECOMMEND' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="text-xs px-3 py-1.5 rounded-lg font-medium transition">
+          Recommend
+        </button>
+        <button @click="filterRating = 'REVIEW'" :class="filterRating === 'REVIEW' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="text-xs px-3 py-1.5 rounded-lg font-medium transition">
+          Under Review / Risk
+        </button>
+      </div>
+
+      <div class="relative w-full md:w-72">
+        <input type="text" x-model="searchQuery" placeholder="Search applicant or NAICS..." class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg pl-8 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        <svg class="w-4 h-4 text-slate-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+      </div>
+    </div>
+
+    <!-- Incoming Requests Table -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-8">
+      <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+        <div>
+          <h2 class="font-bold text-slate-900 text-base">Incoming Grant & Loan Queue</h2>
+          <p class="text-xs text-slate-500">Each application is scored on ROI, Equity, Diversification, and Supply Network Risk</p>
+        </div>
+        <button @click="refreshData()" :disabled="isLoading" class="text-xs text-slate-600 hover:text-slate-900 flex items-center gap-1 font-medium">
+          <svg :class="isLoading ? 'animate-spin' : ''" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+          Sync Data
+        </button>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-slate-200 text-left text-xs">
+          <thead class="bg-slate-50 text-slate-500 font-semibold uppercase tracking-wider">
+            <tr>
+              <th scope="col" class="py-3.5 pl-6 pr-3">Applicant & ID</th>
+              <th scope="col" class="px-3 py-3.5">Grant Request</th>
+              <th scope="col" class="px-3 py-3.5">Direct / Indirect Jobs</th>
+              <th scope="col" class="px-3 py-3.5">Multiplier & Breadth</th>
+              <th scope="col" class="px-3 py-3.5">Cost / Job</th>
+              <th scope="col" class="px-3 py-3.5">Poverty Need</th>
+              <th scope="col" class="px-3 py-3.5">Overall Rating</th>
+              <th scope="col" class="py-3.5 pl-3 pr-6 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200 bg-white">
+            <template x-for="app in filteredRequests" :key="app.request_id">
+              <tr class="hover:bg-slate-50/80 transition cursor-pointer" @click="viewReport(app.request_id)">
+                <!-- Applicant Name & ID -->
+                <td class="py-4 pl-6 pr-3">
+                  <div class="font-bold text-slate-900 text-sm" x-text="app.business_name"></div>
+                  <div class="text-slate-500 flex items-center gap-2 mt-0.5">
+                    <span class="font-mono text-[11px] bg-slate-100 px-1.5 py-0.5 rounded" x-text="app.request_id"></span>
+                    <span>ID: <strong x-text="app.business_id"></strong></span>
+                  </div>
+                </td>
+
+                <!-- Grant Request & Purpose -->
+                <td class="px-3 py-4">
+                  <div class="font-bold text-slate-900 text-sm" x-text="formatCurrency(app.grant_amount)"></div>
+                  <div class="text-slate-500 max-w-xs truncate mt-0.5 text-[11px]" :title="app.purpose" x-text="app.purpose"></div>
+                </td>
+
+                <!-- Direct / Indirect Jobs -->
+                <td class="px-3 py-4">
+                  <div class="font-semibold text-slate-900">
+                    <span class="text-emerald-700" x-text="app.total_job_footprint"></span> total jobs
+                  </div>
+                  <div class="text-slate-500 text-[11px] mt-0.5">
+                    <span x-text="app.direct_jobs"></span> direct • <span class="font-medium text-slate-700" x-text="app.indirect_jobs"></span> indirect
+                  </div>
+                </td>
+
+                <!-- Multiplier & Breadth -->
+                <td class="px-3 py-4">
+                  <div class="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded font-bold text-xs">
+                    ⚡ <span x-text="app.job_multiplier + 'x'"></span>
+                  </div>
+                  <div class="text-[11px] text-slate-500 mt-1">
+                    <span x-text="app.supply_chain_breadth"></span> suppliers reached
+                  </div>
+                </td>
+
+                <!-- Cost / Job -->
+                <td class="px-3 py-4">
+                  <div class="font-bold text-slate-800" x-text="formatCurrency(app.cost_per_job) + ' / job'"></div>
+                  <div class="text-[10px] text-slate-400">ROI Efficiency</div>
+                </td>
+
+                <!-- Equity / Poverty Need -->
+                <td class="px-3 py-4">
+                  <div class="font-medium text-slate-700" x-text="app.neighborhood_poverty_rate"></div>
+                  <div class="text-[10px] text-slate-400">Tract poverty</div>
+                </td>
+
+                <!-- Overall Rating & Score -->
+                <td class="px-3 py-4">
+                  <span :class="badgeClass(app.rating)" class="px-2.5 py-1 rounded-full font-bold text-[11px] inline-block shadow-sm">
+                    <span x-text="app.rating"></span>
+                  </span>
+                  <div class="text-[11px] text-slate-500 font-medium mt-1">
+                    Score: <strong class="text-slate-800" x-text="app.overall_score"></strong> / 100
+                  </div>
+                </td>
+
+                <!-- Actions -->
+                <td class="py-4 pl-3 pr-6 text-right whitespace-nowrap">
+                  <button @click.stop="viewReport(app.request_id)" class="bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs px-3 py-1.5 rounded-lg shadow-sm transition">
+                    View Report & Memo
+                  </button>
+                </td>
+              </tr>
+            </template>
+
+            <tr x-show="filteredRequests.length === 0">
+              <td colspan="8" class="text-center py-12 text-slate-400">
+                No grant applications match the current filter.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- Detailed Report Modal / Drawer -->
+  <div x-show="activeReport !== null" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex justify-center p-4 sm:p-6 lg:p-8" @keydown.escape.window="closeReport()">
+    <div class="bg-white rounded-2xl max-w-4xl w-full shadow-2xl border border-slate-200 overflow-hidden my-auto" @click.outside="closeReport()">
+      
+      <!-- Modal Header -->
+      <div class="bg-slate-900 text-white p-6 flex items-start justify-between">
+        <div>
+          <div class="flex items-center gap-3">
+            <span class="font-mono text-xs bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-md text-emerald-400" x-text="activeReport?.request_id"></span>
+            <span :class="badgeClass(activeReport?.report?.rating)" class="px-3 py-0.5 rounded-full font-bold text-xs" x-text="activeReport?.report?.rating"></span>
+            <span class="text-xs text-slate-300">Composite Score: <strong class="text-white text-sm" x-text="activeReport?.report?.overall_score"></strong>/100</span>
+          </div>
+          <h2 class="text-2xl font-bold mt-2" x-text="activeReport?.report?.business_name"></h2>
+          <p class="text-xs text-slate-300 mt-1">
+            <span x-text="activeReport?.report?.address"></span> • NAICS <span class="font-mono" x-text="activeReport?.report?.naics"></span> • Proposed Grant: <strong class="text-emerald-300" x-text="formatCurrency(activeReport?.grant_amount)"></strong>
+          </p>
+        </div>
+        <button @click="closeReport()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      </div>
+
+      <div class="p-6 max-h-[80vh] overflow-y-auto space-y-6">
+
+        <!-- 4 Evaluation Pillars Grid -->
+        <div>
+          <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Core Track Evaluation Pillars</h3>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            <!-- Pillar 1: ROI & Multiplier -->
+            <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
+              <div class="flex items-center justify-between text-xs font-semibold text-slate-600 mb-2">
+                <span>1. Employment ROI</span>
+                <span class="text-emerald-600 font-bold">Primary Metric</span>
+              </div>
+              <div class="space-y-1.5 text-xs">
+                <div class="flex justify-between">
+                  <span class="text-slate-500">Direct Jobs (Applicant):</span>
+                  <span class="font-bold text-slate-900" x-text="activeReport?.report?.roi?.direct_jobs"></span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-slate-500">Indirect Jobs (Suppliers):</span>
+                  <span class="font-bold text-emerald-700" x-text="activeReport?.report?.roi?.indirect_jobs"></span>
+                </div>
+                <div class="flex justify-between border-t border-slate-200 pt-1">
+                  <span class="font-medium text-slate-700">Total Footprint:</span>
+                  <span class="font-bold text-slate-900" x-text="activeReport?.report?.roi?.total_job_footprint"></span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-slate-500">Cost per Job:</span>
+                  <span class="font-bold text-blue-700" x-text="formatCurrency(activeReport?.report?.roi?.cost_per_job)"></span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-slate-500">Job Multiplier:</span>
+                  <span class="font-bold text-emerald-600" x-text="activeReport?.report?.roi?.job_multiplier + 'x'"></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Pillar 2: Equity & Need -->
+            <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
+              <div class="flex items-center justify-between text-xs font-semibold text-slate-600 mb-2">
+                <span>2. Equity & Need</span>
+                <span class="text-purple-600 font-bold">Need Targeting</span>
+              </div>
+              <div class="space-y-1.5 text-xs">
+                <div class="flex justify-between">
+                  <span class="text-slate-500">Tract Poverty Rate:</span>
+                  <span class="font-bold text-slate-900" x-text="activeReport?.report?.equity?.neighborhood_poverty_rate"></span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-slate-500">Supply Chain Poverty:</span>
+                  <span class="font-bold text-purple-700" x-text="activeReport?.report?.equity?.supply_chain_poverty_footprint"></span>
+                </div>
+                <div class="mt-2 text-[11px] text-slate-500 leading-snug">
+                  Circulates dollars from applicant directly into upstream high-poverty census tracts.
+                </div>
+              </div>
+            </div>
+
+            <!-- Pillar 3: Resilience & Diversification -->
+            <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
+              <div class="flex items-center justify-between text-xs font-semibold text-slate-600 mb-2">
+                <span>3. Resilience</span>
+                <span class="text-blue-600 font-bold">Anti-Monopoly</span>
+              </div>
+              <div class="space-y-1.5 text-xs">
+                <div class="flex justify-between">
+                  <span class="text-slate-500">Sector Concentration:</span>
+                  <span class="font-bold text-slate-900" x-text="activeReport?.report?.resilience?.industry_concentration_risk"></span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-slate-500">Distinct Suppliers:</span>
+                  <span class="font-bold text-blue-700" x-text="activeReport?.report?.resilience?.supply_chain_breadth"></span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-slate-500">Supplier Sectors:</span>
+                  <span class="font-bold text-slate-900" x-text="activeReport?.report?.resilience?.supplier_industry_variety"></span>
+                </div>
+                <div class="mt-1 text-[11px] text-slate-500">
+                  Resilience score measures protection against single-point failure.
+                </div>
+              </div>
+            </div>
+
+            <!-- Pillar 4: Risk & Network Context -->
+            <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
+              <div class="flex items-center justify-between text-xs font-semibold text-slate-600 mb-2">
+                <span>4. Risk & Context</span>
+                <span class="text-rose-600 font-bold">Network Risk</span>
+              </div>
+              <div class="space-y-1.5 text-xs">
+                <div class="flex justify-between">
+                  <span class="text-slate-500">Cascade Traversal:</span>
+                  <span class="font-bold text-slate-900" x-text="activeReport?.report?.risk?.cascade_depth_hops + ' Hops Deep'"></span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-slate-500">SBA Fragility Flag:</span>
+                  <span :class="activeReport?.report?.risk?.fragility_flag ? 'text-rose-600 font-bold' : 'text-emerald-700 font-bold'" x-text="activeReport?.report?.risk?.fragility_flag ? 'ACTIVE' : 'CLEAR'"></span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-slate-500">Defaulted Partners:</span>
+                  <span class="font-bold text-slate-900" x-text="activeReport?.report?.risk?.fragile_suppliers_count"></span>
+                </div>
+                <div class="mt-1 text-[10px] text-slate-400">
+                  Assumptions: BEA I/O rates & geographic block allocation.
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Supplier Cascade Table -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              BigQuery GQL Upstream Supplier Network (<span x-text="activeReport?.report?.suppliers?.length || 0"></span> Sample Nodes)
+            </h3>
+            <span class="text-[11px] text-slate-500 font-mono">MATCH (engine)<-[:Supplies]-{1,3}(supplier)</span>
+          </div>
+          
+          <div class="border border-slate-200 rounded-xl overflow-hidden">
+            <table class="min-w-full divide-y divide-slate-200 text-left text-xs">
+              <thead class="bg-slate-50 text-slate-500 font-medium">
+                <tr>
+                  <th class="py-2.5 pl-4 pr-2">Supplier Business Name</th>
+                  <th class="px-2 py-2.5">Supplier ID</th>
+                  <th class="px-2 py-2.5">NAICS Code</th>
+                  <th class="py-2.5 pl-2 pr-4 text-right">Estimated Jobs Sustained</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-200 bg-white">
+                <template x-for="sup in activeReport?.report?.suppliers" :key="sup.business_id">
+                  <tr class="hover:bg-slate-50">
+                    <td class="py-2 pl-4 pr-2 font-medium text-slate-900" x-text="sup.name"></td>
+                    <td class="px-2 py-2 font-mono text-slate-500" x-text="sup.business_id"></td>
+                    <td class="px-2 py-2 font-mono text-slate-500" x-text="sup.naics"></td>
+                    <td class="py-2 pl-2 pr-4 text-right font-bold text-emerald-700" x-text="sup.estimated_jobs + ' jobs'"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Executive Grant Memo Section -->
+        <div class="bg-slate-50 rounded-xl p-5 border border-slate-200">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <span class="text-base">📝</span>
+              <h3 class="font-bold text-slate-900 text-sm">Grant Officer Executive Memo (ADK Agent Generated)</h3>
+            </div>
+            <button @click="reEvaluateActive()" :disabled="isEvaluating" class="text-xs bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg font-medium flex items-center gap-1 shadow-sm transition">
+              <svg :class="isEvaluating ? 'animate-spin' : ''" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+              Re-evaluate with Agent
+            </button>
+          </div>
+          
+          <div class="prose prose-xs max-w-none text-slate-700 bg-white p-4 rounded-lg border border-slate-200 whitespace-pre-wrap font-sans leading-relaxed text-xs" x-text="activeReport?.memo">
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex items-center justify-end gap-3">
+        <button @click="closeReport()" class="px-4 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-200 transition">
+          Close Window
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- New Grant Application Modal -->
+  <div x-show="openNewRequestModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex justify-center p-4" @keydown.escape.window="openNewRequestModal = false">
+    <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden my-auto p-6" @click.outside="openNewRequestModal = false">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-200">
+        <h3 class="font-bold text-slate-900 text-lg">Submit New Grant Application</h3>
+        <button @click="openNewRequestModal = false" class="text-slate-400 hover:text-slate-700">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      </div>
+
+      <form @submit.prevent="submitNewRequest()" class="mt-4 space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Select Corridor Business (or enter ID)</label>
+          <select x-model="newRequest.business_id" class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-emerald-500">
+            <option value="114">114 - The Warfield Theater</option>
+            <option value="141">141 - Binis Kitchen LLC</option>
+            <option value="103">103 - City Produce</option>
+            <option value="169">169 - Golden Auto Muffler & Brake Sf Co.</option>
+            <option value="170">170 - Mo'z Cafe Inc</option>
+            <option value="60">60 - Bluebird Office Supplies</option>
+            <option value="64">64 - 415 Ebikes</option>
+            <option value="54">54 - Qua Spa</option>
+            <option value="150">150 - Point One Navigation Offices</option>
+            <option value="171">171 - Tradespace</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Grant Amount Requested ($ USD)</label>
+          <input type="number" step="5000" min="5000" max="250000" x-model.number="newRequest.grant_amount" required class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-emerald-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Stated Purpose / Expansion Plan</label>
+          <textarea rows="3" x-model="newRequest.purpose" required placeholder="Describe how grant funds will expand operations or purchase local supplier inventory..." class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-emerald-500"></textarea>
+        </div>
+
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" @click="openNewRequestModal = false" class="px-4 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 rounded-lg">Cancel</button>
+          <button type="submit" :disabled="isSubmitting" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-4 py-2 rounded-lg shadow transition flex items-center gap-1.5">
+            <span x-show="!isSubmitting">Evaluate Application</span>
+            <span x-show="isSubmitting">Processing Graph...</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    function dashboardApp() {
+      return {
+        requests: [],
+        filterRating: 'ALL',
+        searchQuery: '',
+        isLoading: false,
+        isEvaluating: false,
+        isSubmitting: false,
+        openNewRequestModal: false,
+        activeReport: null,
+        newRequest: {
+          business_id: '64',
+          grant_amount: 50000,
+          purpose: 'New e-bike technician training and regional parts supplier order expansion'
+        },
+
+        async initData() {
+          await this.refreshData();
+        },
+
+        async refreshData() {
+          this.isLoading = true;
+          try {
+            const resp = await fetch('/api/requests');
+            if (resp.ok) {
+              this.requests = await resp.json();
+            }
+          } catch (e) {
+            console.error('Failed to load requests:', e);
+          } finally {
+            this.isLoading = false;
+          }
+        },
+
+        get filteredRequests() {
+          return this.requests.filter(r => {
+            const matchRating = (this.filterRating === 'ALL') ||
+              (this.filterRating === 'STRONGLY RECOMMEND' && r.rating === 'STRONGLY RECOMMEND') ||
+              (this.filterRating === 'RECOMMEND' && r.rating === 'RECOMMEND') ||
+              (this.filterRating === 'REVIEW' && (r.rating.includes('REVIEW') || r.rating.includes('CONDITIONS') || r.rating.includes('RISK')));
+
+            const q = this.searchQuery.toLowerCase().trim();
+            const matchQuery = !q ||
+              r.business_name.toLowerCase().includes(q) ||
+              r.request_id.toLowerCase().includes(q) ||
+              r.purpose.toLowerCase().includes(q);
+
+            return matchRating && matchQuery;
+          });
+        },
+
+        get totalRequestedAmount() {
+          return this.requests.reduce((sum, r) => sum + (r.grant_amount || 0), 0);
+        },
+
+        get avgGrantAmount() {
+          if (!this.requests.length) return 0;
+          return Math.round(this.totalRequestedAmount / this.requests.length);
+        },
+
+        get avgMultiplier() {
+          if (!this.requests.length) return 0;
+          const sum = this.requests.reduce((s, r) => s + (r.job_multiplier || 1), 0);
+          return (sum / this.requests.length).toFixed(1);
+        },
+
+        get avgCostPerJob() {
+          if (!this.requests.length) return 0;
+          const sum = this.requests.reduce((s, r) => s + (r.cost_per_job || 0), 0);
+          return Math.round(sum / this.requests.length);
+        },
+
+        async viewReport(requestId) {
+          try {
+            const resp = await fetch(`/api/requests/${requestId}`);
+            if (resp.ok) {
+              this.activeReport = await resp.json();
+            }
+          } catch (e) {
+            console.error('Failed to fetch report:', e);
+          }
+        },
+
+        closeReport() {
+          this.activeReport = null;
+        },
+
+        async reEvaluateActive() {
+          if (!this.activeReport) return;
+          this.isEvaluating = true;
+          try {
+            const resp = await fetch(`/api/requests/${this.activeReport.request_id}/evaluate`, { method: 'POST' });
+            if (resp.ok) {
+              this.activeReport = await resp.json();
+              await this.refreshData();
+            }
+          } catch (e) {
+            console.error('Re-evaluation error:', e);
+          } finally {
+            this.isEvaluating = false;
+          }
+        },
+
+        async submitNewRequest() {
+          this.isSubmitting = true;
+          try {
+            const resp = await fetch('/api/requests', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(this.newRequest),
+            });
+            if (resp.ok) {
+              const created = await resp.json();
+              this.openNewRequestModal = false;
+              await this.refreshData();
+              this.viewReport(created.request_id);
+            }
+          } catch (e) {
+            console.error('Error submitting application:', e);
+          } finally {
+            this.isSubmitting = false;
+          }
+        },
+
+        formatCurrency(val) {
+          if (!val && val !== 0) return '$0';
+          return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
+        },
+
+        badgeClass(rating) {
+          if (!rating) return 'bg-slate-100 text-slate-800 border border-slate-200';
+          if (rating.includes('STRONGLY')) return 'bg-emerald-100 text-emerald-800 border border-emerald-300';
+          if (rating === 'RECOMMEND') return 'bg-blue-100 text-blue-800 border border-blue-300';
+          if (rating.includes('CONDITIONS')) return 'bg-amber-100 text-amber-800 border border-amber-300';
+          return 'bg-rose-100 text-rose-800 border border-rose-300';
+        }
+      }
+    }
+  </script>
+</body>
+</html>

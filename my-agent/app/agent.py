@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import os
 from google.adk.agents import Agent
 from google.adk.apps import App
@@ -20,8 +21,11 @@ from google.adk.models import Gemini
 from google.genai import types
 from google.cloud import bigquery
 
+from app.metrics_service import calculate_applicant_metrics
 
-MODEL = "gemini-3.8-flash" # Ensure we use a robust model for this task
+
+MODEL = "gemini-3.8-flash"  # Ensure we use a robust model for this task
+
 
 def evaluate_applicant_impact(business_id: str, grant_amount: int) -> str:
     """Evaluates the economic impact of giving a grant to a business by analyzing its supply chain cascade.
@@ -36,48 +40,77 @@ def evaluate_applicant_impact(business_id: str, grant_amount: int) -> str:
     """
     project_id = os.environ.get("GOOGLE_CLOUD_PROJECT")
     if not project_id:
+        try:
+            import subprocess
+            project_id = subprocess.check_output(
+                ["gcloud", "config", "get-value", "project"],
+                text=True,
+                stderr=subprocess.DEVNULL
+            ).strip()
+        except Exception:
+            pass
+
+    if not project_id:
         return "Error: GOOGLE_CLOUD_PROJECT environment variable is not set."
 
     client = bigquery.Client(project=project_id)
     
-    # This is the required Differentiator: A genuine multi-hop GQL traversal.
-    # Note: We traverse BACKWARDS from the applicant (the buyer) to find their suppliers,
-    # because this track ("Engine of Prosperity") is about fueling buyers to support suppliers.
+    # Required Differentiator: Multi-hop backward GQL traversal from applicant (buyer) to suppliers
     query = f"""
-    GRAPH_TABLE(a4i_econ.corridor_graph
-      MATCH p = (engine:Business {{business_id: '{business_id}'}})<-[s:Supplies]-{{1,3}}(supplier:Business)
+    SELECT * FROM GRAPH_TABLE(a4i_econ.corridor_graph
+      MATCH (engine:Business {{business_id: '{business_id}'}})<-[s:Supplies]-{{1,3}}(supplier:Business)
       COLUMNS (
         engine.name AS engine_name,
         supplier.name AS supplier_name,
         supplier.business_id AS supplier_id,
-        supplier.naics AS supplier_naics
+        supplier.naics AS supplier_naics,
+        supplier.estimated_jobs AS supplier_estimated_jobs
       )
     )
     """
     
     try:
         query_job = client.query(query)
-        results = query_job.result()
+        results = list(query_job.result())
         
         suppliers_found = set()
+        total_indirect_jobs = 0
         engine_name = "Unknown"
         for row in results:
             engine_name = row['engine_name']
-            suppliers_found.add(row['supplier_name'])
+            if row['supplier_id'] not in suppliers_found:
+                suppliers_found.add(row['supplier_id'])
+                total_indirect_jobs += int(row['supplier_estimated_jobs'] or 0)
             
         if not suppliers_found:
-            return f"Applicant {business_id} has no measurable downstream supply chain cascade."
+            return f"Applicant {business_id} has no measurable downstream supply chain cascade in the corridor graph."
             
         summary = (
             f"Cascade Analysis for {engine_name} (ID: {business_id}):\n"
-            f"- Grant Amount: ${grant_amount}\n"
-            f"- Downstream Suppliers Protected ({len(suppliers_found)} total): {', '.join(list(suppliers_found)[:5])}"
-            f"{'...' if len(suppliers_found) > 5 else ''}\n"
-            f"- Multiplier Effect: Positive (Funding this engine supports the above suppliers)."
+            f"- Grant Amount: ${grant_amount:,}\n"
+            f"- Upstream Suppliers Reached ({len(suppliers_found)} total): {len(suppliers_found)} distinct businesses\n"
+            f"- Total Indirect Jobs Sustained: {total_indirect_jobs} jobs\n"
+            f"- Downstream Multiplier: Positive economic ripple back into supplier network."
         )
         return summary
     except Exception as e:
         return f"Error executing graph traversal: {str(e)}"
+
+
+def get_track_metrics_report(business_id: str, grant_amount: int, purpose: str = "Expansion") -> str:
+    """Computes the full 4-pillar metrics report (ROI, Equity, Resilience, Risk) for an applicant.
+    
+    Args:
+        business_id: The ID of the applicant business.
+        grant_amount: The requested grant or loan amount.
+        purpose: Stated business purpose or expansion plan.
+        
+    Returns:
+        JSON string with all metrics, overall score, and recommendation tier.
+    """
+    metrics = calculate_applicant_metrics(business_id, grant_amount, purpose)
+    return json.dumps(metrics, indent=2)
+
 
 def run_standard_query(sql_query: str) -> str:
     """Executes a standard SQL query on Google BigQuery (e.g. for tract_demographics or borrowed_from tables).
@@ -93,7 +126,7 @@ def run_standard_query(sql_query: str) -> str:
     try:
         results = client.query(sql_query).result()
         rows = [dict(row) for row in results]
-        return str(rows[:10]) # Limit output size
+        return str(rows[:10])  # Limit output size
     except Exception as e:
         return f"Query Error: {str(e)}"
 
@@ -107,14 +140,16 @@ root_agent = Agent(
     instruction=(
         "You are an Economic Development Director managing the 'Engine of Prosperity' micro-grant program. "
         "Your goal is to maximize localized job creation and economic resilience by funding 'economic engines'—"
-        "businesses that buy heavily from downstream suppliers. "
-        "When given a business applicant, use the `evaluate_applicant_impact` tool to run the BigQuery GQL traversal "
-        "and find their supply chain cascade. Use `run_standard_query` to check `a4i_econ.tract_demographics` or "
-        "`a4i_econ.borrowed_from` if needed. "
+        "businesses that purchase heavily from downstream suppliers. "
+        "When evaluating applicants, use `get_track_metrics_report` to review the 4 evaluation pillars: "
+        "1) ROI / Employment Multiplier (Direct + Indirect Jobs), 2) Equity & Need (Neighborhood Poverty), "
+        "3) Resilience (Industry Concentration & Supply Breadth), and 4) Risk (SBA Charge-offs). "
+        "You can also use `evaluate_applicant_impact` to inspect the reverse GQL graph traversal, and `run_standard_query` "
+        "for ad-hoc BigQuery queries. "
         "Always output a formal 'Grant Memo' justifying your funding decisions based on the cascade and multiplier effect, "
-        "and clearly state that supply chain edges are modeled from BEA direct requirements."
+        "and clearly state that supply chain edges are modeled from BEA direct requirements and direct jobs are modeled from employer blocks."
     ),
-    tools=[evaluate_applicant_impact, run_standard_query],
+    tools=[get_track_metrics_report, evaluate_applicant_impact, run_standard_query],
 )
 
 app = App(

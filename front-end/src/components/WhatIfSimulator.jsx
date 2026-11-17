@@ -9,13 +9,15 @@ import {
   DollarSign, 
   RotateCcw,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  Bot
 } from 'lucide-react';
 import { calculateDownstreamExposure, runNaiveStrategy, runResilienceStrategy } from '../utils/graphCalculations';
 
 export function WhatIfSimulator({
   corridor,
-  budget
+  budget,
+  onAskCopilot,
 }) {
   const [closedBusinessIds, setClosedBusinessIds] = useState(['cm-01']); // Default closed: Merchant Roots
   
@@ -75,13 +77,26 @@ export function WhatIfSimulator({
           </p>
         </div>
 
-        <button
-          onClick={resetSimulation}
-          className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition flex items-center gap-1.5 cursor-pointer self-start md:self-auto border border-slate-700"
-        >
-          <RotateCcw className="w-3.5 h-3.5" />
-          <span>Reset Simulation</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {onAskCopilot && (
+            <button
+              onClick={() => onAskCopilot(`Simulate an economic shock if ${directlyClosed.map(b => b.name).join(', ')} closes. How many direct (${totalDirectJobsLost}) and cascading (${totalCascadingJobsLost}) jobs are at risk, and how does Resilience Strategy defend the corridor?`)}
+              className="px-3.5 py-1.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+              title="Converse with AI Copilot about this simulated shock"
+            >
+              <Bot className="w-3.5 h-3.5 text-blue-400" />
+              <span>Ask Copilot to Analyze Shock</span>
+            </button>
+          )}
+
+          <button
+            onClick={resetSimulation}
+            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition flex items-center gap-1.5 cursor-pointer self-start md:self-auto border border-slate-700"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Reset Simulation</span>
+          </button>
+        </div>
       </div>
 
       {/* Side-by-side Strategy Resilience Benchmark */}

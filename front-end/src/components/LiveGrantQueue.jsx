@@ -1,24 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Sparkles, 
-  RefreshCw, 
-  PlusCircle, 
-  ExternalLink, 
-  FileText, 
-  Network, 
-  MapPin, 
-  ShieldAlert, 
-  ShieldCheck, 
-  Building2, 
-  DollarSign, 
-  Users, 
-  Percent, 
+import {
+  Sparkles,
+  RefreshCw,
+  PlusCircle,
+  ExternalLink,
+  FileText,
+  Network,
+  MapPin,
+  ShieldAlert,
+  ShieldCheck,
+  Building2,
+  DollarSign,
+  Users,
+  Percent,
   X,
-  ChevronRight
+  ChevronRight,
+  Bot,
+  Mic,
+  MessageSquare,
 } from 'lucide-react';
-import { 
-  fetchLiveRequests, 
-  triggerEvaluateRequest 
+import {
+  fetchLiveRequests,
+  triggerEvaluateRequest
 } from '../services/agentApi';
 import { AIAgentProgressModal } from './AIAgentProgressModal';
 import { CommitteePitchReport } from './CommitteePitchReport';
@@ -28,7 +31,8 @@ export function LiveGrantQueue({
   onSelectBusinessForMap,
   onSelectBusinessForMemo,
   onPitchWithCopilot,
-  corridor
+  corridor,
+  onAskCopilot,
 }) {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -152,7 +156,7 @@ export function LiveGrantQueue({
   });
 
   const totalCapital = requests.reduce((sum, r) => sum + (r.grant_amount || 0), 0);
-  const avgMultiplier = requests.length 
+  const avgMultiplier = requests.length
     ? (requests.reduce((s, r) => s + (r.job_multiplier || 1), 0) / requests.length).toFixed(1)
     : '0';
   const avgCostPerJob = requests.length
@@ -191,8 +195,8 @@ export function LiveGrantQueue({
               </h2>
             </div>
             <p className="text-xs text-slate-400 mt-1 max-w-3xl">
-              Live evaluation queue for economic engines. Applicants are scored on 4 core pillars: 
-              <strong> 1) Employment Multiplier (Reverse GQL)</strong>, <strong>2) Tract Poverty Equity</strong>, 
+              Live evaluation queue for economic engines. Applicants are scored on 4 core pillars:
+              <strong> 1) Employment Multiplier (Reverse GQL)</strong>, <strong>2) Tract Poverty Equity</strong>,
               <strong> 3) Resilience Breadth</strong>, and <strong>4) SBA Default Risk</strong>.
             </p>
           </div>
@@ -249,11 +253,10 @@ export function LiveGrantQueue({
               <button
                 key={f.id}
                 onClick={() => setFilterRating(f.id)}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition cursor-pointer ${
-                  filterRating === f.id
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition cursor-pointer ${filterRating === f.id
                     ? 'bg-blue-600 text-white'
                     : 'bg-slate-800/80 text-slate-400 hover:text-slate-200'
-                }`}
+                  }`}
               >
                 {f.label}
               </button>
@@ -270,6 +273,34 @@ export function LiveGrantQueue({
             />
           </div>
         </div>
+
+        {/* Conversational Query Strip */}
+        {onAskCopilot && (
+          <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-800/40 mt-3 text-xs">
+            <span className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
+              <Bot className="w-3.5 h-3.5 text-blue-400" />
+              <span>Converse with Copilot:</span>
+            </span>
+            <button
+              onClick={() => onAskCopilot('Who is our top recommended grant applicant and why? Break down their job multiplier and supply chain reach.')}
+              className="px-2.5 py-1 rounded-full bg-blue-900/30 hover:bg-blue-800/40 text-blue-300 border border-blue-500/30 text-[11px] transition flex items-center gap-1 cursor-pointer"
+            >
+              <span>🏆 Who is our #1 applicant?</span>
+            </button>
+            <button
+              onClick={() => onAskCopilot('Explain how the 16.7x job multiplier for The Warfield Theater is calculated using BigQuery property graphs.')}
+              className="px-2.5 py-1 rounded-full bg-emerald-900/30 hover:bg-emerald-800/40 text-emerald-300 border border-emerald-500/30 text-[11px] transition flex items-center gap-1 cursor-pointer"
+            >
+              <span>⚡ Explain 16.7x Multiplier</span>
+            </button>
+            <button
+              onClick={() => onAskCopilot('Audit the equity and demographic impact of funding our top resilience candidates in Census Tract 124.02.')}
+              className="px-2.5 py-1 rounded-full bg-purple-900/30 hover:bg-purple-800/40 text-purple-300 border border-purple-500/30 text-[11px] transition flex items-center gap-1 cursor-pointer"
+            >
+              <span>⚖️ Audit Tract Equity & CDFI</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Requests Table */}
@@ -290,7 +321,7 @@ export function LiveGrantQueue({
             </thead>
             <tbody className="divide-y divide-slate-800/60">
               {filteredRequests.map((req) => (
-                <tr 
+                <tr
                   key={req.request_id}
                   onClick={() => handleOpenReport(req.request_id)}
                   className="hover:bg-slate-800/50 transition cursor-pointer"
@@ -359,6 +390,16 @@ export function LiveGrantQueue({
                   {/* Actions */}
                   <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1.5">
+                      {onAskCopilot && (
+                        <button
+                          onClick={() => onAskCopilot(`Tell me about ${req.business_name}: explain its 4-pillar score, job multiplier, and supply chain cascade.`)}
+                          className="flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 font-medium transition cursor-pointer"
+                          title="Converse with AI Copilot about this business"
+                        >
+                          <Bot className="w-3.5 h-3.5 text-blue-400" />
+                          <span>Ask Copilot</span>
+                        </button>
+                      )}
                       <button
                         onClick={() => {
                           if (onPitchWithCopilot) {
@@ -422,7 +463,7 @@ export function LiveGrantQueue({
       {activeReport && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-sm flex justify-center p-4 sm:p-6 lg:p-8">
           <div className="bg-slate-900 rounded-2xl max-w-4xl w-full shadow-2xl border border-slate-800 overflow-hidden my-auto flex flex-col max-h-[90vh]">
-            
+
             {/* Modal Header */}
             <div className="p-6 bg-slate-950 border-b border-slate-800 flex items-start justify-between">
               <div>
@@ -461,7 +502,7 @@ export function LiveGrantQueue({
                 <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
                   Core Track Evaluation Pillars
                 </div>
-                
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   {/* Pillar 1: ROI */}
                   <div className="bg-slate-950/70 p-4 rounded-xl border border-slate-800">
@@ -572,7 +613,7 @@ export function LiveGrantQueue({
                     MATCH (engine)&lt;-[:Supplies]-&#123;1,3&#125;(supplier)
                   </span>
                 </div>
-                
+
                 <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden">
                   <table className="w-full text-left text-xs">
                     <thead className="bg-slate-900 border-b border-slate-800 text-slate-400 font-mono text-[10px]">
@@ -698,8 +739,8 @@ export function LiveGrantQueue({
             <form onSubmit={handleSubmitNewApp} className="mt-4 space-y-4 text-xs">
               <div>
                 <label className="block text-slate-300 font-semibold mb-1">Select Corridor Business (or enter ID)</label>
-                <select 
-                  value={newApp.business_id} 
+                <select
+                  value={newApp.business_id}
                   onChange={(e) => {
                     const val = e.target.value;
                     const opt = e.target.selectedOptions[0]?.text || '';
@@ -726,40 +767,40 @@ export function LiveGrantQueue({
 
               <div>
                 <label className="block text-slate-300 font-semibold mb-1">Grant Amount Requested ($ USD)</label>
-                <input 
-                  type="number" 
-                  step="5000" 
-                  min="5000" 
-                  max="250000" 
+                <input
+                  type="number"
+                  step="5000"
+                  min="5000"
+                  max="250000"
                   value={newApp.grant_amount}
                   onChange={(e) => setNewApp({ ...newApp, grant_amount: Number(e.target.value) })}
-                  required 
+                  required
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-blue-500"
                 />
               </div>
 
               <div>
                 <label className="block text-slate-300 font-semibold mb-1">Stated Purpose / Expansion Plan</label>
-                <textarea 
-                  rows={3} 
+                <textarea
+                  rows={3}
                   value={newApp.purpose}
                   onChange={(e) => setNewApp({ ...newApp, purpose: e.target.value })}
-                  required 
+                  required
                   placeholder="Describe operational expansion or local supplier procurement..."
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-blue-500"
                 />
               </div>
 
               <div className="pt-2 flex justify-end gap-2">
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setShowNewModal(false)}
                   className="px-4 py-2 text-slate-400 hover:text-slate-200 rounded-lg"
                 >
                   Cancel
                 </button>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   disabled={isSubmitting}
                   className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-4 py-2 rounded-lg transition flex items-center gap-1.5 cursor-pointer"
                 >

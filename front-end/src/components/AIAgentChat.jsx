@@ -1,9 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { 
-  Bot, 
-  Send, 
-  Sparkles, 
-  Terminal, 
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import {
+  Bot,
+  Send,
+  Sparkles,
+  Terminal,
   RotateCcw,
   User,
   WifiOff,
@@ -11,9 +11,36 @@ import {
   RefreshCw,
   ChevronDown,
   ShieldCheck,
-  ExternalLink
+  ExternalLink,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
+  AudioLines,
+  Maximize2,
+  X,
 } from 'lucide-react';
 import { sendAgentQuery, resetSession } from '../services/agentApi';
+
+// ─── Voice helpers ────────────────────────────────────────────────────────────
+const SpeechRecognition =
+  typeof window !== 'undefined'
+    ? window.SpeechRecognition || window.webkitSpeechRecognition || null
+    : null;
+
+/** Strip markdown so TTS doesn't read "hash hash Title" */
+function stripMarkdown(text) {
+  return text
+    .replace(/#{1,6}\s+/g, '')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/`{1,3}[^`]*`{1,3}/g, '')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/^[-*>]\s+/gm, '')
+    .replace(/\|.+\|/g, '')
+    .replace(/\n{2,}/g, '. ')
+    .trim();
+}
 
 export function AIAgentChat({
   corridor,
@@ -21,6 +48,10 @@ export function AIAgentChat({
   onSelectBusinessForMemo,
   initialPrompt,
   onClearInitialPrompt,
+  initialQuery = '',
+  isDrawer = false,
+  onCloseDrawer,
+  onExpandToFullTab,
 }) {
   const bottomRef = useRef(null);
   const [messages, setMessages] = useState([
@@ -35,6 +66,96 @@ export function AIAgentChat({
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+
+  // Auto-send when initialQuery prop arrives or changes
+  const lastExecutedQueryRef = useRef('');
+  useEffect(() => {
+    if (initialQuery && initialQuery.trim() && initialQuery !== lastExecutedQueryRef.current) {
+      lastExecutedQueryRef.current = initialQuery;
+      handleSendPromptRef.current?.(initialQuery);
+    }
+  }, [initialQuery]);
+
+  // ── Voice input state ──────────────────────────────────────────────────────
+  const [isListening, setIsListening] = useState(false);
+  const [voiceError, setVoiceError] = useState(null);
+  const recognitionRef = useRef(null);
+
+  // ── Voice output state ─────────────────────────────────────────────────────
+  const [ttsEnabled, setTtsEnabled] = useState(true);
+  const [speakingMsgId, setSpeakingMsgId] = useState(null);
+  const utteranceRef = useRef(null);
+
+  // ── Speak an agent response ────────────────────────────────────────────────
+  const speak = useCallback((text, msgId) => {
+    if (!ttsEnabled || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(stripMarkdown(text));
+    utter.rate = 1.05;
+    utter.pitch = 1;
+    // Prefer a female English voice when available
+    const voices = window.speechSynthesis.getVoices();
+    const preferred = voices.find(v => /en.*female|samantha|victoria|karen|moira/i.test(v.name))
+      || voices.find(v => /en/i.test(v.lang));
+    if (preferred) utter.voice = preferred;
+    utter.onstart = () => setSpeakingMsgId(msgId);
+    utter.onend = () => setSpeakingMsgId(null);
+    utter.onerror = () => setSpeakingMsgId(null);
+    utteranceRef.current = utter;
+    window.speechSynthesis.speak(utter);
+  }, [ttsEnabled]);
+
+  const stopSpeaking = useCallback(() => {
+    window.speechSynthesis?.cancel();
+    setSpeakingMsgId(null);
+  }, []);
+
+  // Stop TTS when component unmounts
+  useEffect(() => () => window.speechSynthesis?.cancel(), []);
+
+  // ── Voice recognition toggle ───────────────────────────────────────────────
+  const toggleListening = useCallback(() => {
+    if (!SpeechRecognition) {
+      setVoiceError('Speech recognition is not supported in this browser.');
+      return;
+    }
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+    setVoiceError(null);
+    const rec = new SpeechRecognition();
+    rec.lang = 'en-US';
+    rec.continuous = false;
+    rec.interimResults = true;
+
+    rec.onstart = () => setIsListening(true);
+
+    rec.onresult = (e) => {
+      const transcript = Array.from(e.results)
+        .map(r => r[0].transcript)
+        .join('');
+      setInput(transcript);
+      // Auto-send on final result
+      if (e.results[e.results.length - 1].isFinal) {
+        setIsListening(false);
+        // slight delay so state flushes
+        setTimeout(() => handleSendPromptRef.current(transcript), 100);
+      }
+    };
+
+    rec.onerror = (e) => {
+      setVoiceError(e.error === 'not-allowed'
+        ? 'Microphone permission denied. Please allow mic access and try again.'
+        : `Voice error: ${e.error}`);
+      setIsListening(false);
+    };
+
+    rec.onend = () => setIsListening(false);
+    recognitionRef.current = rec;
+    rec.start();
+  }, [isListening]);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -58,18 +179,24 @@ export function AIAgentChat({
     {
       label: '🏆 Top grant applicant?',
       prompt: 'Who is the top recommended grant applicant and why? Show me their job multiplier and supply chain reach.',
+      label: '🏆 Who is our top applicant?',
+      prompt: 'Who is our top recommended grant applicant and why? Break down their job multiplier and supply chain reach.',
     },
     {
-      label: '🔗 Supply chain analysis',
-      prompt: 'Run a multi-hop supply chain analysis for the top businesses. Which ones are keystone nodes whose closure would cascade to the most downstream jobs?',
+      label: '⚡ Explain 16.7x Multiplier',
+      prompt: 'Explain how the 16.7x job multiplier for The Warfield Theater is calculated using BigQuery property graphs.',
     },
     {
-      label: '📊 Section 13 Filter (5-25 dependents)',
-      prompt: 'Execute the Section 13 GQL query: Which businesses protect a meaningful number of others (between 5 and 25 dependents) without being giant hubs?',
+      label: '🔗 Cascade shock if anchor closes?',
+      prompt: 'What happens to the corridor supply chain if our anchor venue closes? Trace the downstream cascade risk.',
     },
     {
-      label: '⚖️ Equity & Demographics Audit',
-      prompt: 'Audit the equity and demographic impact of funding our top resilience candidates in this census tract.',
+      label: '📊 Section 13 Sweet Spot',
+      prompt: 'Which local businesses protect 5 to 25 dependents without being giant corporate monopolies?',
+    },
+    {
+      label: '⚖️ Audit Tract Equity & CDFI',
+      prompt: 'Audit the equity and demographic impact of funding our top resilience candidates in Census Tract 124.02.',
     },
     {
       label: '🛡️ Policy & Guardrail Audit',
@@ -94,10 +221,10 @@ export function AIAgentChat({
       const liveTools = (result.toolCalls && result.toolCalls.length > 0)
         ? result.toolCalls
         : [{
-            tool: 'ADK → gemini-flash (Vertex AI)',
-            query: `POST /run  app=app  user=grant-officer`,
-            output: `${(result.events ?? []).length} events received from agent`,
-          }];
+          tool: 'ADK → gemini-flash (Vertex AI)',
+          query: `POST /run  app=app  user=grant-officer`,
+          output: `${(result.events ?? []).length} events received from agent`,
+        }];
 
       setMessages(prev => [
         ...prev,
@@ -120,7 +247,7 @@ export function AIAgentChat({
       let toolExecutionList = [];
       const q = userText.toLowerCase();
 
-      if (q.includes('pitch') || q.includes('deck') || q.includes('committee') || q.includes('warfield')) {
+      if (q.includes('pitch') || q.includes('deck') || q.includes('committee')) {
         toolExecutionList = [
           {
             tool: 'traverse_upstream_supply_chain',
@@ -206,15 +333,10 @@ I have executed our complete 6-stage evaluation protocol across BigQuery GQL, Ce
           query: `GRAPH a4i_econ.corridor_graph\nMATCH p = (engine:Business)<-[:Supplies]-{1,3}(supplier:Business)\nRETURN engine.name, SUM(supplier.estimated_jobs) AS total_supplier_jobs\nORDER BY total_supplier_jobs DESC LIMIT 5`,
           output: '[{Warfield, 1272}, {City Produce, 340}, {Binis Kitchen, 189}]',
         };
-      } else if (q.includes('guardrail') || q.includes('audit') || q.includes('policy')) {
-        agentResponse = `### 🛡️ Compliance & Guardrails Audit: Applicant #114 (The Warfield)\n\n**Overall Status: PASSED (5/5 Checks Compliant)**\n\n- ✅ **Program Budget Ceiling:** $50,000 is within approved micro-grant range ($1,000 - $100,000).\n- ✅ **Fair Lending (ECOA):** 100% demographic neutrality enforced. Evaluations strictly based on neighborhood census tract poverty and graph multiplier.\n- ✅ **SQL & Data Query Safety:** Strict read-only access active. DDL/DML mutations blocked. Query row limits enforced.\n- ✅ **Modeling Disclosures:** Bureau of Economic Analysis (BEA) direct requirements and LEHD employer block allocations declared.\n- ✅ **Upstream Fragility Scan:** Zero defaulted upstream SBA suppliers detected.\n\n*Agent runtime certified compliant with municipal grant governance rules.*`;
-        toolExecution = {
-          tool: 'audit_grant_guardrails(business_id="114", grant_amount=50000)',
-          query: 'SELECT * FROM a4i_econ.businesses WHERE business_id = "114" LIMIT 25',
-          output: '{"status": "PASSED", "checks": 5, "risk_flags": []}',
-        };
+      } else if (q.includes('equity') || q.includes('demographic')) {
+        agentResponse = `### Equity & Demographics Audit\n\nCensus tract analysis for active corridor applicants:\n\n- **Neighborhood Poverty Rate:** 22.6%\n- **Minority-Owned Businesses:** 67% of applicant pool\n- **Women-Owned:** 34%\n- **Low-Income Census Tract:** Yes (qualifies for CDFI priority)\n\n**Equity Score by Applicant:**\n| Business | Poverty Rate | MOB | WOB |\n|----------|-------------|-----|-----|\n| Warfield Theater | 22.6% | ✅ | ❌ |\n| Binis Kitchen | 28.1% | ✅ | ✅ |\n| City Produce | 19.3% | ✅ | ❌ |\n\nFunding Binis Kitchen alongside Warfield maximizes both economic multiplier AND equity objectives.`;
       } else {
-        agentResponse = `I analyzed your query against the **${corridor.name}** property graph (${corridor.businesses?.length ?? 0} businesses, BigQuery dataset: \`a4i_econ.corridor_graph\`).\n\nTo get the most relevant answer, try one of the suggested prompts above, or ask about:\n- **Top applicants** and their job multiplier scores\n- **Supply chain** keystone analysis\n- **GQL traversal** queries\n- **Equity** and demographic audit\n- **Guardrails** and compliance policies\n\n> ⚠️ Agent backend: ${agentOnline ? '🟢 ONLINE' : '🔴 OFFLINE — running in fallback mode'}`;
+        agentResponse = `I analyzed your query against the **${corridor.name}** property graph (${corridor.businesses?.length ?? 0} businesses, BigQuery dataset: \`a4i_econ.corridor_graph\`).\n\nTo get the most relevant answer, try one of the suggested prompts above, or ask about:\n- **Top applicants** and their job multiplier scores\n- **Supply chain** keystone analysis\n- **GQL traversal** queries\n- **Equity** and demographic audit\n\n> ⚠️ Agent backend: ${agentOnline ? '🟢 ONLINE' : '🔴 OFFLINE — running in fallback mode'}`;
       }
 
       setMessages(prev => [
@@ -238,9 +360,10 @@ I have executed our complete 6-stage evaluation protocol across BigQuery GQL, Ce
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl flex flex-col h-[640px]">
+    <div className={`bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col ${isDrawer ? 'h-[600px] w-full' : 'h-[680px]'
+      }`}>
       {/* Chat Header */}
-      <div className="bg-slate-950/80 border-b border-slate-800 p-4 flex items-center justify-between">
+      <div className="bg-slate-950/90 border-b border-slate-800 p-3.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center">
             <Bot className="w-4 h-4" />
@@ -274,6 +397,47 @@ I have executed our complete 6-stage evaluation protocol across BigQuery GQL, Ce
         >
           <RefreshCw className="w-3.5 h-3.5" />
         </button>
+        <div className="flex items-center gap-1">
+          {/* TTS toggle */}
+          <button
+            onClick={() => { setTtsEnabled(v => !v); stopSpeaking(); }}
+            className={`text-xs p-1.5 rounded-lg transition flex items-center gap-1 ${ttsEnabled
+              ? 'text-blue-400 hover:text-blue-300 hover:bg-slate-800'
+              : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
+              }`}
+            title={ttsEnabled ? 'Mute voice responses' : 'Enable voice responses'}
+          >
+            {ttsEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+          </button>
+
+          <button
+            onClick={handleClearChat}
+            className="text-xs text-slate-400 hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-800 transition flex items-center gap-1"
+            title="New conversation"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+          </button>
+
+          {isDrawer && onExpandToFullTab && (
+            <button
+              onClick={onExpandToFullTab}
+              className="text-xs text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition flex items-center gap-1"
+              title="Expand to full screen Copilot tab"
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          {isDrawer && onCloseDrawer && (
+            <button
+              onClick={onCloseDrawer}
+              className="text-xs text-slate-400 hover:text-rose-400 p-1.5 rounded-lg hover:bg-slate-800 transition flex items-center gap-1"
+              title="Close conversational drawer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Suggested Prompts Banner */}
@@ -303,11 +467,10 @@ I have executed our complete 6-stage evaluation protocol across BigQuery GQL, Ce
               className={`flex gap-3 max-w-3xl ${isAgent ? 'mr-auto' : 'ml-auto flex-row-reverse'}`}
             >
               <div
-                className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                  isAgent
-                    ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
-                    : 'bg-indigo-600 text-white'
-                }`}
+                className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isAgent
+                  ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
+                  : 'bg-indigo-600 text-white'
+                  }`}
               >
                 {isAgent ? <Bot className="w-4 h-4" /> : <User className="w-4 h-4" />}
               </div>
@@ -344,11 +507,10 @@ I have executed our complete 6-stage evaluation protocol across BigQuery GQL, Ce
                 )}
 
                 <div
-                  className={`p-4 rounded-2xl text-xs leading-relaxed ${
-                    isAgent
-                      ? 'bg-slate-950/80 border border-slate-800 text-slate-200'
-                      : 'bg-blue-600 text-white'
-                  }`}
+                  className={`p-4 rounded-2xl text-xs leading-relaxed ${isAgent
+                    ? 'bg-slate-950/80 border border-slate-800 text-slate-200'
+                    : 'bg-blue-600 text-white'
+                    }`}
                 >
                   <div className="prose prose-invert prose-xs max-w-none whitespace-pre-wrap break-words">
                     {m.text}

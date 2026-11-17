@@ -12,7 +12,9 @@ import {
   Check, 
   Copy,
   ChevronRight,
-  ShieldCheck
+  ShieldCheck,
+  Bot,
+  MessageSquare
 } from 'lucide-react';
 import { calculateDownstreamExposure } from '../utils/graphCalculations';
 
@@ -21,7 +23,9 @@ export function NetworkGraph({
   selectedBusinessId,
   onSelectBusiness,
   onGenerateMemo,
-  onSwitchToMap
+  onSwitchToMap,
+  onAskCopilot,
+  theme = 'light',
 }) {
   const [selectedDepth, setSelectedDepth] = useState(2);
   const [activeEdgeFilter, setActiveEdgeFilter] = useState('all'); // 'all', 'supplies', 'footfall'
@@ -373,20 +377,21 @@ RETURN TO_JSON(p) AS paths;`;
                 const isDownstream = exposure.downstreamList.some((d) => d.business.id === b.id);
                 const isShocked = isSimulatingFailure && (isSeed || isDownstream);
 
-                let fillBg = '#0f172a';
-                let strokeColor = '#334155';
-                let textColor = '#cbd5e1';
+                const isDark = theme === 'dark';
+                let fillBg = isDark ? '#0f172a' : '#ffffff';
+                let strokeColor = isDark ? '#334155' : '#cbd5e1';
+                let textColor = isDark ? '#cbd5e1' : '#1e293b';
 
                 if (isSeed) {
-                  fillBg = isShocked ? '#4c0519' : '#1e3a8a';
-                  strokeColor = isShocked ? '#f43f5e' : '#60a5fa';
-                  textColor = '#ffffff';
+                  fillBg = isShocked ? (isDark ? '#4c0519' : '#ffe4e6') : (isDark ? '#1e3a8a' : '#eff6ff');
+                  strokeColor = isShocked ? '#f43f5e' : '#2563eb';
+                  textColor = isShocked ? '#be123c' : (isDark ? '#ffffff' : '#1e40af');
                 } else if (isDownstream) {
-                  fillBg = isShocked ? '#380a18' : '#1e1b4b';
-                  strokeColor = isShocked ? '#fb7185' : '#818cf8';
-                  textColor = '#e0e7ff';
+                  fillBg = isShocked ? (isDark ? '#380a18' : '#fff1f2') : (isDark ? '#1e1b4b' : '#eef2ff');
+                  strokeColor = isShocked ? '#fb7185' : '#6366f1';
+                  textColor = isShocked ? '#be123c' : (isDark ? '#e0e7ff' : '#3730a3');
                 } else if (b.role.includes('Keystone') || b.role.includes('Hub')) {
-                  strokeColor = '#3b82f6';
+                  strokeColor = isDark ? '#3b82f6' : '#2563eb';
                 }
 
                 return (
@@ -566,24 +571,44 @@ RETURN TO_JSON(p) AS paths;`;
             </button>
           </div>
 
-          {/* BigQuery GQL Code Snippet */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg space-y-2">
+          {/* BigQuery GQL Code Snippet & Conversational Trigger */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg space-y-3">
             <div className="flex items-center justify-between text-xs text-slate-400">
-              <span className="flex items-center gap-1.5 font-mono">
+              <span className="flex items-center gap-1.5 font-mono text-slate-300 font-semibold">
                 <FileCode2 className="w-4 h-4 text-blue-400" />
                 BigQuery GQL Traversal
               </span>
               <button
                 onClick={copyGql}
-                className="text-[11px] text-slate-400 hover:text-slate-200 flex items-center gap-1 transition"
+                className="text-[11px] text-slate-400 hover:text-slate-200 flex items-center gap-1 transition cursor-pointer"
               >
                 {copiedQuery ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                 <span>{copiedQuery ? 'Copied' : 'Copy SQL'}</span>
               </button>
             </div>
-            <pre className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-[11px] font-mono text-cyan-300 overflow-x-auto leading-relaxed">
+            
+            <pre className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-[10px] font-mono text-cyan-300 overflow-x-auto leading-relaxed">
               {gqlQuery}
             </pre>
+
+            {onAskCopilot && (
+              <div className="space-y-1.5 pt-1 border-t border-slate-800/80">
+                <button
+                  onClick={() => onAskCopilot(`Explain the multi-hop supply chain path starting from ${seedBusiness.name} within ${selectedDepth} hops in plain English.`)}
+                  className="w-full py-1.5 px-3 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-xs font-medium transition flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Bot className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Ask Copilot to Explain This Path</span>
+                </button>
+                <button
+                  onClick={() => onAskCopilot(`What is the cascade shock to the corridor if ${seedBusiness.name} were to close? Which downstream businesses are at risk?`)}
+                  className="w-full py-1.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Ask Copilot: Cascade shock risk</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

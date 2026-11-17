@@ -1,13 +1,13 @@
 import React from 'react';
-import { ShieldCheck, Users, Landmark, HeartHandshake, AlertCircle, Sparkles } from 'lucide-react';
+import { ShieldCheck, Users, Landmark, HeartHandshake, AlertCircle, Sparkles, Bot } from 'lucide-react';
 
-export function EquityDemographics({ corridor }) {
+export function EquityDemographics({ corridor, onAskCopilot }) {
   const d = corridor.demographics;
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-xl bg-emerald-600/20 text-emerald-400 border border-emerald-500/30">
             <ShieldCheck className="w-5 h-5" />
@@ -21,6 +21,17 @@ export function EquityDemographics({ corridor }) {
             </p>
           </div>
         </div>
+
+        {onAskCopilot && (
+          <button
+            onClick={() => onAskCopilot(`Audit the equity and demographic impact for Census Tract ${d.tractName} (${d.pctPoverty} poverty, ${d.pctBIPOC} BIPOC). How does funding local economic engines prevent gentrification displacement?`)}
+            className="px-3.5 py-1.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer self-start sm:self-auto shrink-0"
+            title="Converse with AI Copilot about tract equity and CDFI standards"
+          >
+            <Bot className="w-3.5 h-3.5 text-purple-400" />
+            <span>Ask Copilot: Audit Equity</span>
+          </button>
+        )}
       </div>
 
       {/* Main Demographics Grid */}

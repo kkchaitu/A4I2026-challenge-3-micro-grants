@@ -10,7 +10,8 @@ import {
   Building2, 
   Info,
   ExternalLink,
-  ChevronRight
+  ChevronRight,
+  Bot
 } from 'lucide-react';
 import { calculateDownstreamExposure } from '../utils/graphCalculations';
 
@@ -22,7 +23,8 @@ export function FundingQueue({
   onApplyNaiveStrategy,
   onSelectBusinessForGraph,
   onSelectBusinessForMemo,
-  strategyMode
+  strategyMode,
+  onAskCopilot,
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
@@ -69,8 +71,18 @@ export function FundingQueue({
             </p>
           </div>
 
-          {/* Quick Strategy Action Buttons */}
+          {/* Quick Strategy Action Buttons & Conversational Query */}
           <div className="flex flex-wrap items-center gap-2">
+            {onAskCopilot && (
+              <button
+                onClick={() => onAskCopilot(`Why does the Resilience Strategy protect significantly more jobs than Naive Distress Ranking? Explain the graph ripple effect.`)}
+                className="px-3 py-2 text-xs font-semibold rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 transition flex items-center gap-1.5 cursor-pointer"
+                title="Ask Copilot about strategy trade-offs"
+              >
+                <Bot className="w-3.5 h-3.5 text-blue-400" />
+                <span>Ask Copilot: Compare Strategies</span>
+              </button>
+            )}
             <button
               onClick={onApplyResilienceStrategy}
               className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-600/20 transition flex items-center gap-1.5 cursor-pointer"

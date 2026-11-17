@@ -1,16 +1,18 @@
 import React from 'react';
-import { 
-  Building2, 
-  Network, 
-  MapPin, 
-  FileText, 
-  SlidersHorizontal, 
-  Bot, 
-  ShieldCheck, 
-  DollarSign, 
+import {
+  Building2,
+  Network,
+  MapPin,
+  FileText,
+  SlidersHorizontal,
+  Bot,
+  ShieldCheck,
+  DollarSign,
   Layers,
   Sparkles,
-  Award
+  Award,
+  Sun,
+  Moon
 } from 'lucide-react';
 
 export function Header({
@@ -24,7 +26,9 @@ export function Header({
   strategyMode,
   onSetStrategyMode,
   agentOnline,
-  onRefreshAgent
+  onRefreshAgent,
+  theme,
+  onToggleTheme,
 }) {
   const currentCorridor = corridors[activeCorridorId];
 
@@ -46,11 +50,10 @@ export function Header({
               </span>
               <button
                 onClick={onRefreshAgent}
-                className={`text-[10px] font-mono px-2 py-0.5 rounded-full border flex items-center gap-1 transition cursor-pointer ${
-                  agentOnline
+                className={`text-[10px] font-mono px-2 py-0.5 rounded-full border flex items-center gap-1 transition cursor-pointer ${agentOnline
                     ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25'
                     : 'bg-amber-500/15 text-amber-300 border-amber-500/30 hover:bg-amber-500/25'
-                }`}
+                  }`}
                 title={agentOnline ? 'Agent connected on localhost:8000' : 'Click to test agent connection on localhost:8000'}
               >
                 <span className={`w-1.5 h-1.5 rounded-full ${agentOnline ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
@@ -105,28 +108,26 @@ export function Header({
           <div className="flex items-center bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
             <button
               onClick={() => onSetStrategyMode('resilience')}
-              className={`px-2.5 py-1 rounded-md font-medium transition flex items-center gap-1.5 ${
-                strategyMode === 'resilience'
+              className={`px-2.5 py-1 rounded-md font-medium transition flex items-center gap-1.5 ${strategyMode === 'resilience'
                   ? 'bg-blue-600 text-white shadow-sm'
                   : 'text-slate-400 hover:text-slate-200'
-              }`}
+                }`}
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span>Resilience Graph</span>
             </button>
             <button
               onClick={() => onSetStrategyMode('naive')}
-              className={`px-2.5 py-1 rounded-md font-medium transition flex items-center gap-1.5 ${
-                strategyMode === 'naive'
+              className={`px-2.5 py-1 rounded-md font-medium transition flex items-center gap-1.5 ${strategyMode === 'naive'
                   ? 'bg-amber-600 text-white shadow-sm'
                   : 'text-slate-400 hover:text-slate-200'
-              }`}
+                }`}
             >
               <span className="text-[11px]">Naive Distress</span>
             </button>
           </div>
 
-          {/* External ADK Playground */}
+          {/* External ADK Playground & Theme Toggle */}
           <div className="flex items-center gap-1.5">
             <a
               href="/dev-ui/?app=app"
@@ -138,6 +139,24 @@ export function Header({
               <span>ADK Dev Playground</span>
               <span className="text-[10px]">↗</span>
             </a>
+
+            <button
+              onClick={onToggleTheme}
+              className="text-[11px] font-medium px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/80 flex items-center gap-1.5 transition cursor-pointer"
+              title={theme === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
+            >
+              {theme === 'dark' ? (
+                <>
+                  <Sun className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Dark</span>
+                </>
+              ) : (
+                <>
+                  <Moon className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Light</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
       </div>
@@ -161,11 +180,10 @@ export function Header({
             <button
               key={tab.id}
               onClick={() => onSelectTab(tab.id)}
-              className={`flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-lg transition-all whitespace-nowrap cursor-pointer ${
-                isActive
+              className={`flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-lg transition-all whitespace-nowrap cursor-pointer ${isActive
                   ? 'bg-blue-600/15 text-blue-400 border border-blue-500/30'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 border border-transparent'
-              } ${tab.highlight && !isActive ? 'text-amber-400/90' : ''}`}
+                } ${tab.highlight && !isActive ? 'text-amber-400/90' : ''}`}
             >
               <Icon className="w-4 h-4" />
               <span>{tab.label}</span>

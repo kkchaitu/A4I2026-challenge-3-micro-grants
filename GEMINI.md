@@ -2,7 +2,7 @@
 
 ## Track Name: Engine of Prosperity
 
-This project implements a custom track for the Agents for Impact 2026 challenge.
+This project implements a custom track for the Agents for Impact 2026 challenge. We are explicitly building the "Custom" track, not the standard Main Street, Micro-producer, or Anchor closure tracks.
 
 ### Core Concept
 *   **Flip the script:** Instead of saving failing businesses, the goal is to accelerate successful ones.

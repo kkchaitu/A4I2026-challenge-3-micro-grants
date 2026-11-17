@@ -102,6 +102,14 @@ class CreateApplicationInput(BaseModel):
     business_name: Optional[str] = None
 
 
+# Override default ADK root redirect so the root URL opens our Grant Officer Dashboard directly
+for _i, _route in enumerate(app.routes):
+    if getattr(_route, "path", None) == "/":
+        app.routes.pop(_i)
+        break
+
+
+@app.get("/", response_class=HTMLResponse)
 @app.get("/dashboard", response_class=HTMLResponse)
 async def get_dashboard():
     """Serves the Grant Officer interactive decision dashboard."""

@@ -16,9 +16,11 @@
 In-memory store and registry for incoming grant/loan applications.
 """
 
+import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from app.metrics_service import calculate_applicant_metrics, _generate_simulated_metrics
+from app.guardrails import validate_grant_parameters, audit_grant_guardrails
 
 # Pre-seeded incoming requests using real businesses from a4i_econ.businesses
 INITIAL_APPLICATIONS = [
@@ -100,6 +102,8 @@ class RequestsStore:
             
             memo = self._generate_default_memo(app, report)
 
+            audit = json.loads(audit_grant_guardrails(app["business_id"], app["grant_amount"], app["purpose"]))
+
             self._requests[req_id] = {
                 "request_id": req_id,
                 "business_id": app["business_id"],
@@ -110,6 +114,7 @@ class RequestsStore:
                 "status": app["status"],
                 "report": report,
                 "memo": memo,
+                "guardrail_audit": audit,
             }
 
     def _generate_default_memo(self, app: Dict[str, Any], report: Dict[str, Any]) -> str:
@@ -169,6 +174,7 @@ class RequestsStore:
                 "overall_score": report.get("overall_score", 0),
                 "rating": report.get("rating", "PENDING"),
                 "rating_color": report.get("rating_color", "slate"),
+                "guardrail_status": req.get("guardrail_audit", {}).get("overall_status", "PASSED"),
             })
         # Sort by overall score descending
         summaries.sort(key=lambda x: x["overall_score"], reverse=True)
@@ -199,6 +205,9 @@ class RequestsStore:
         req["business_name"] = report.get("business_name") or req["business_name"]
         req["report"] = report
         req["status"] = "Evaluated"
+        req["guardrail_audit"] = json.loads(
+            audit_grant_guardrails(req["business_id"], req["grant_amount"], req["purpose"])
+        )
         if custom_memo:
             req["memo"] = custom_memo
         else:
@@ -208,6 +217,11 @@ class RequestsStore:
 
     def create_request(self, business_id: str, grant_amount: int, purpose: str, business_name: Optional[str] = None) -> Dict[str, Any]:
         """Creates a new grant application and evaluates it."""
+        # Parameter & budget guardrail validation
+        is_valid, err_msg = validate_grant_parameters(business_id, grant_amount, purpose)
+        if not is_valid:
+            raise ValueError(err_msg)
+
         new_id = f"REQ-2026-{len(self._requests) + 1:03d}"
         report = calculate_applicant_metrics(
             business_id=business_id,
@@ -215,6 +229,7 @@ class RequestsStore:
             purpose=purpose,
         )
         resolved_name = business_name or report.get("business_name") or f"Applicant #{business_id}"
+        audit = json.loads(audit_grant_guardrails(business_id, grant_amount, purpose))
         app_record = {
             "request_id": new_id,
             "business_id": business_id,
@@ -224,6 +239,7 @@ class RequestsStore:
             "submitted_at": datetime.now(timezone.utc).isoformat(),
             "status": "Evaluated",
             "report": report,
+            "guardrail_audit": audit,
         }
         app_record["memo"] = self._generate_default_memo(app_record, report)
         self._requests[new_id] = app_record

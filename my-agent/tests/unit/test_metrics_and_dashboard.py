@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pytest
+import unittest
 from fastapi.testclient import TestClient
 
 from app.metrics_service import calculate_applicant_metrics, _generate_simulated_metrics
@@ -20,143 +20,151 @@ from app.requests_store import store
 from app.fast_api_app import app
 
 
-def test_metrics_calculation_structure():
-    """Verifies that metrics return the required 4-pillar structure and recommendation."""
-    # Test with real business or simulated
-    metrics = calculate_applicant_metrics(business_id="114", grant_amount=50000, purpose="Acoustics upgrade")
+class TestMetricsAndDashboard(unittest.TestCase):
+    """Verifies metrics calculation, requests store, and FastAPI routes."""
 
-    assert "roi" in metrics
-    assert "equity" in metrics
-    assert "resilience" in metrics
-    assert "risk" in metrics
-    assert "overall_score" in metrics
-    assert "rating" in metrics
-    assert "rating_color" in metrics
+    def test_metrics_calculation_structure(self):
+        """Verifies that metrics return the required 4-pillar structure and recommendation."""
+        metrics = calculate_applicant_metrics(business_id="114", grant_amount=50000, purpose="Acoustics upgrade")
 
-    # Pillar 1: ROI
-    roi = metrics["roi"]
-    assert "direct_jobs" in roi
-    assert "indirect_jobs" in roi
-    assert "total_job_footprint" in roi
-    assert "cost_per_job" in roi
-    assert "job_multiplier" in roi
-    assert roi["total_job_footprint"] >= roi["direct_jobs"]
+        self.assertIn("roi", metrics)
+        self.assertIn("equity", metrics)
+        self.assertIn("resilience", metrics)
+        self.assertIn("risk", metrics)
+        self.assertIn("overall_score", metrics)
+        self.assertIn("rating", metrics)
+        self.assertIn("rating_color", metrics)
 
-    # Pillar 2: Equity
-    equity = metrics["equity"]
-    assert "neighborhood_poverty_rate" in equity
-    assert "supply_chain_poverty_footprint" in equity
+        # Pillar 1: ROI
+        roi = metrics["roi"]
+        self.assertIn("direct_jobs", roi)
+        self.assertIn("indirect_jobs", roi)
+        self.assertIn("total_job_footprint", roi)
+        self.assertIn("cost_per_job", roi)
+        self.assertIn("job_multiplier", roi)
+        self.assertGreaterEqual(roi["total_job_footprint"], roi["direct_jobs"])
 
-    # Pillar 3: Resilience
-    resilience = metrics["resilience"]
-    assert "industry_concentration_risk" in resilience
-    assert "supply_chain_breadth" in resilience
-    assert "supplier_industry_variety" in resilience
+        # Pillar 2: Equity
+        equity = metrics["equity"]
+        self.assertIn("neighborhood_poverty_rate", equity)
+        self.assertIn("supply_chain_poverty_footprint", equity)
 
-    # Pillar 4: Risk
-    risk = metrics["risk"]
-    assert "cascade_depth_hops" in risk
-    assert "fragility_flag" in risk
+        # Pillar 3: Resilience
+        resilience = metrics["resilience"]
+        self.assertIn("industry_concentration_risk", resilience)
+        self.assertIn("supply_chain_breadth", resilience)
+        self.assertIn("supplier_industry_variety", resilience)
+
+        # Pillar 4: Risk
+        risk = metrics["risk"]
+        self.assertIn("cascade_depth_hops", risk)
+        self.assertIn("fragility_flag", risk)
+
+    def test_simulated_fallback(self):
+        """Verifies fallback generation if offline or business not found."""
+        sim = _generate_simulated_metrics(business_id="fake_999", grant_amount=25000, purpose="Testing")
+        self.assertEqual(sim["business_id"], "fake_999")
+        self.assertGreater(sim["roi"]["total_job_footprint"], 0)
+        self.assertIn(sim["rating"], ["STRONGLY RECOMMEND", "RECOMMEND", "CONSIDER WITH CONDITIONS", "HIGH RISK / REVIEW"])
+
+    def test_requests_store_operations(self):
+        """Verifies listing, retrieving, and creating applications."""
+        reqs = store.list_requests()
+        self.assertGreaterEqual(len(reqs), 6)
+
+        # Verify summary structure
+        first = reqs[0]
+        self.assertIn("request_id", first)
+        self.assertIn("business_name", first)
+        self.assertIn("direct_jobs", first)
+        self.assertIn("indirect_jobs", first)
+        self.assertIn("total_job_footprint", first)
+        self.assertIn("overall_score", first)
+        self.assertIn("rating", first)
+        self.assertIn("guardrail_status", first)
+
+        # Retrieve single
+        detail = store.get_request(first["request_id"])
+        self.assertIsNotNone(detail)
+        self.assertIn("report", detail)
+        self.assertIn("memo", detail)
+        self.assertIn("Executive Grant Memorandum", detail["memo"])
+        self.assertIn("guardrail_audit", detail)
+
+        # Create new application
+        new_app = store.create_request(
+            business_id="171",
+            grant_amount=75000,
+            purpose="Server infrastructure upgrade",
+            business_name="Tradespace Tech"
+        )
+        self.assertTrue(new_app["request_id"].startswith("REQ-2026-"))
+        self.assertEqual(new_app["grant_amount"], 75000)
+        self.assertEqual(new_app["business_name"], "Tradespace Tech")
+        self.assertIn("guardrail_audit", new_app)
+
+    def test_api_routes(self):
+        """Verifies FastAPI endpoints for dashboard and API."""
+        client = TestClient(app)
+
+        # 1. Frontend HTML (accessible at / and /app, and standalone dashboard at /dashboard)
+        root_resp = client.get("/")
+        self.assertEqual(root_resp.status_code, 200)
+
+        app_resp = client.get("/app")
+        self.assertEqual(app_resp.status_code, 200)
+
+        dash_resp = client.get("/dashboard", follow_redirects=True)
+        self.assertEqual(dash_resp.status_code, 200)
+        self.assertIn("Engine of Prosperity", dash_resp.text)
+
+        # 2. List Requests API
+        list_resp = client.get("/api/requests")
+        self.assertEqual(list_resp.status_code, 200)
+        data = list_resp.json()
+        self.assertIsInstance(data, list)
+        self.assertGreaterEqual(len(data), 6)
+
+        # 3. Get Single Request API
+        req_id = data[0]["request_id"]
+        get_resp = client.get(f"/api/requests/{req_id}")
+        self.assertEqual(get_resp.status_code, 200)
+        detail = get_resp.json()
+        self.assertEqual(detail["request_id"], req_id)
+        self.assertIn("report", detail)
+        self.assertIn("guardrail_audit", detail)
+
+        # 4. Re-evaluate API
+        eval_resp = client.post(f"/api/requests/{req_id}/evaluate")
+        self.assertEqual(eval_resp.status_code, 200)
+        self.assertEqual(eval_resp.json()["status"], "Evaluated")
+        self.assertIn("guardrail_audit", eval_resp.json())
+
+        # 5. Create Request API
+        create_resp = client.post("/api/requests", json={
+            "business_id": "141",
+            "grant_amount": 30000,
+            "purpose": "Kitchen expansion",
+            "business_name": "Binis Kitchen"
+        })
+        self.assertEqual(create_resp.status_code, 200)
+        self.assertEqual(create_resp.json()["grant_amount"], 30000)
+
+        # 6. Structured Dossier API
+        dossier_resp = client.get(f"/api/requests/{req_id}/report")
+        self.assertEqual(dossier_resp.status_code, 200)
+        dossier_data = dossier_resp.json()
+        self.assertIn("dossier", dossier_data)
+        self.assertIn("charts", dossier_data["dossier"])
+        self.assertIn("defense_narrative", dossier_data["dossier"])
+
+        # 7. Standalone Committee Pitch HTML Report with Charts on Top
+        html_resp = client.get(f"/report/{req_id}")
+        self.assertEqual(html_resp.status_code, 200)
+        self.assertIn("chart.js", html_resp.text.lower())
+        self.assertIn("OFFICIAL COMMITTEE PITCH DOSSIER", html_resp.text)
+        self.assertIn("Visual Proof of Economic Multiplier", html_resp.text)
 
 
-def test_simulated_fallback():
-    """Verifies fallback generation if offline or business not found."""
-    sim = _generate_simulated_metrics(business_id="fake_999", grant_amount=25000, purpose="Testing")
-    assert sim["business_id"] == "fake_999"
-    assert sim["roi"]["total_job_footprint"] > 0
-    assert sim["rating"] in ["STRONGLY RECOMMEND", "RECOMMEND", "CONSIDER WITH CONDITIONS", "HIGH RISK / REVIEW"]
-
-
-def test_requests_store_operations():
-    """Verifies listing, retrieving, and creating applications."""
-    reqs = store.list_requests()
-    assert len(reqs) >= 6
-
-    # Verify summary structure
-    first = reqs[0]
-    assert "request_id" in first
-    assert "business_name" in first
-    assert "direct_jobs" in first
-    assert "indirect_jobs" in first
-    assert "total_job_footprint" in first
-    assert "overall_score" in first
-    assert "rating" in first
-
-    # Retrieve single
-    detail = store.get_request(first["request_id"])
-    assert detail is not None
-    assert "report" in detail
-    assert "memo" in detail
-    assert "Executive Grant Memorandum" in detail["memo"]
-
-    # Create new application
-    new_app = store.create_request(
-        business_id="171",
-        grant_amount=75000,
-        purpose="Server infrastructure upgrade",
-        business_name="Tradespace Tech"
-    )
-    assert new_app["request_id"].startswith("REQ-2026-")
-    assert new_app["grant_amount"] == 75000
-    assert new_app["business_name"] == "Tradespace Tech"
-
-
-def test_api_routes():
-    """Verifies FastAPI endpoints for dashboard and API."""
-    client = TestClient(app)
-
-    # 1. Frontend HTML (accessible at / and /app, and standalone dashboard at /dashboard)
-    root_resp = client.get("/")
-    assert root_resp.status_code == 200
-
-    app_resp = client.get("/app")
-    assert app_resp.status_code == 200
-
-    dash_resp = client.get("/dashboard", follow_redirects=True)
-    assert dash_resp.status_code == 200
-    assert "Engine of Prosperity" in dash_resp.text
-
-    # 2. List Requests API
-    list_resp = client.get("/api/requests")
-    assert list_resp.status_code == 200
-    data = list_resp.json()
-    assert isinstance(data, list)
-    assert len(data) >= 6
-
-    # 3. Get Single Request API
-    req_id = data[0]["request_id"]
-    get_resp = client.get(f"/api/requests/{req_id}")
-    assert get_resp.status_code == 200
-    detail = get_resp.json()
-    assert detail["request_id"] == req_id
-    assert "report" in detail
-
-    # 4. Re-evaluate API
-    eval_resp = client.post(f"/api/requests/{req_id}/evaluate")
-    assert eval_resp.status_code == 200
-    assert eval_resp.json()["status"] == "Evaluated"
-
-    # 5. Create Request API
-    create_resp = client.post("/api/requests", json={
-        "business_id": "141",
-        "grant_amount": 30000,
-        "purpose": "Kitchen expansion",
-        "business_name": "Binis Kitchen"
-    })
-    assert create_resp.status_code == 200
-    assert create_resp.json()["grant_amount"] == 30000
-
-    # 6. Structured Dossier API
-    dossier_resp = client.get(f"/api/requests/{req_id}/report")
-    assert dossier_resp.status_code == 200
-    dossier_data = dossier_resp.json()
-    assert "dossier" in dossier_data
-    assert "charts" in dossier_data["dossier"]
-    assert "defense_narrative" in dossier_data["dossier"]
-
-    # 7. Standalone Committee Pitch HTML Report with Charts on Top
-    html_resp = client.get(f"/report/{req_id}")
-    assert html_resp.status_code == 200
-    assert "chart.js" in html_resp.text.lower()
-    assert "OFFICIAL COMMITTEE PITCH DOSSIER" in html_resp.text
-    assert "Visual Proof of Economic Multiplier" in html_resp.text
+if __name__ == "__main__":
+    unittest.main()

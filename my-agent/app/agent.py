@@ -22,6 +22,14 @@ from google.genai import types
 from google.cloud import bigquery
 
 from app.metrics_service import calculate_applicant_metrics
+from app.guardrails import (
+    validate_sql_query,
+    validate_grant_parameters,
+    audit_grant_guardrails,
+    before_tool_guardrail_callback,
+    before_model_guardrail_callback,
+    after_model_guardrail_callback,
+)
 
 
 MODEL = "gemini-3.8-flash"  # Ensure we use a robust model for this task
@@ -38,6 +46,11 @@ def evaluate_applicant_impact(business_id: str, grant_amount: int) -> str:
         A formatted string detailing the downstream cascade, the total businesses protected, 
         and the estimated ROI (multiplier effect) based on the supply graph.
     """
+    # Guardrail Check
+    is_valid, err_msg = validate_grant_parameters(business_id, grant_amount)
+    if not is_valid:
+        return err_msg
+
     project_id = os.environ.get("GOOGLE_CLOUD_PROJECT")
     if not project_id:
         try:
@@ -108,6 +121,11 @@ def get_track_metrics_report(business_id: str, grant_amount: int, purpose: str =
     Returns:
         JSON string with all metrics, overall score, and recommendation tier.
     """
+    # Guardrail Check
+    is_valid, err_msg = validate_grant_parameters(business_id, grant_amount, purpose)
+    if not is_valid:
+        return json.dumps({"error": err_msg, "status": "BLOCKED_BY_GUARDRAIL"}, indent=2)
+
     metrics = calculate_applicant_metrics(business_id, grant_amount, purpose)
     return json.dumps(metrics, indent=2)
 
@@ -121,10 +139,15 @@ def run_standard_query(sql_query: str) -> str:
     Returns:
         A string representation of the query results.
     """
+    # Guardrail Check: Ensure read-only, permitted keywords, and row limits
+    is_safe, reason, sanitized_query = validate_sql_query(sql_query)
+    if not is_safe:
+        return f"Query Blocked by Guardrail: {reason}"
+
     project_id = os.environ.get("GOOGLE_CLOUD_PROJECT")
     client = bigquery.Client(project=project_id)
     try:
-        results = client.query(sql_query).result()
+        results = client.query(sanitized_query).result()
         rows = [dict(row) for row in results]
         return str(rows[:10])  # Limit output size
     except Exception as e:
@@ -140,16 +163,45 @@ root_agent = Agent(
     instruction=(
         "You are an Economic Development Director managing the 'Engine of Prosperity' micro-grant program. "
         "Your goal is to maximize localized job creation and economic resilience by funding 'economic engines'—"
-        "businesses that purchase heavily from downstream suppliers. "
-        "When evaluating applicants, use `get_track_metrics_report` to review the 4 evaluation pillars: "
-        "1) ROI / Employment Multiplier (Direct + Indirect Jobs), 2) Equity & Need (Neighborhood Poverty), "
-        "3) Resilience (Industry Concentration & Supply Breadth), and 4) Risk (SBA Charge-offs). "
-        "You can also use `evaluate_applicant_impact` to inspect the reverse GQL graph traversal, and `run_standard_query` "
-        "for ad-hoc BigQuery queries. "
-        "Always output a formal 'Grant Memo' justifying your funding decisions based on the cascade and multiplier effect, "
-        "and clearly state that supply chain edges are modeled from BEA direct requirements and direct jobs are modeled from employer blocks."
+        "businesses that purchase heavily from downstream suppliers.\n\n"
+        "### OPERATIONAL RULES & GUARDRAILS:\n"
+        "1. **Grant Budget Policy**: Micro-grants must strictly range between $1,000 and $100,000. Any request outside this range must be rejected or referred to City Council review.\n"
+        "2. **Fair Lending & Anti-Bias (Equal Credit Opportunity Act)**: Never evaluate or filter applicants based on protected demographic attributes (race, gender, religion, etc.). Equity evaluations rely exclusively on neighborhood census tract poverty rates from ACS data.\n"
+        "3. **Objective 4-Pillar Evaluation**: When evaluating applicants, use `get_track_metrics_report` to review: 1) ROI / Employment Multiplier, 2) Equity & Need, 3) Resilience, and 4) Risk.\n"
+        "4. **Supply Cascade Inspection**: Use `evaluate_applicant_impact` to inspect the reverse GQL graph traversal.\n"
+        "5. **Compliance & Guardrail Auditing**: Use `audit_grant_guardrails` to run policy verification on applicants.\n"
+        "6. **Database Boundaries**: When using `run_standard_query`, only run read-only SELECT queries on permitted a4i_econ tables. Never execute DDL or DML.\n"
+        "7. **Mandatory Methodological Disclosures**: Always output a formal 'Grant Memo' justifying decisions based on multiplier effects, "
+        "and clearly disclose that supply chain edges are modeled from BEA direct requirements and direct jobs are modeled from employer blocks."
     ),
-    tools=[get_track_metrics_report, evaluate_applicant_impact, run_standard_query],
+    tools=[get_track_metrics_report, evaluate_applicant_impact, run_standard_query, audit_grant_guardrails],
+    before_tool_callback=before_tool_guardrail_callback,
+    before_model_callback=before_model_guardrail_callback,
+    after_model_callback=after_model_guardrail_callback,
+    generate_content_config=types.GenerateContentConfig(
+        safety_settings=[
+            types.SafetySetting(
+                category=types.HarmCategory.HARM_CATEGORY_JAILBREAK,
+                threshold=types.HarmBlockThreshold.BLOCK_LOW_AND_ABOVE,
+            ),
+            types.SafetySetting(
+                category=types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                threshold=types.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            ),
+            types.SafetySetting(
+                category=types.HarmCategory.HARM_CATEGORY_HARASSMENT,
+                threshold=types.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            ),
+            types.SafetySetting(
+                category=types.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                threshold=types.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            ),
+            types.SafetySetting(
+                category=types.HarmCategory.HARM_CATEGORY_CIVIC_INTEGRITY,
+                threshold=types.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            ),
+        ]
+    ),
 )
 
 app = App(

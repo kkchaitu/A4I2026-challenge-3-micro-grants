@@ -25,7 +25,13 @@ agent packaged for Agent Runtime.
 import inspect
 import json
 
-from agentplatform.frameworks.adk import AdkApp
+try:
+    from agentplatform.frameworks.adk import AdkApp
+    _REASONING_ENGINE_AVAILABLE = True
+except (ImportError, ModuleNotFoundError):
+    _REASONING_ENGINE_AVAILABLE = False
+    AdkApp = None
+
 from fastapi import FastAPI, HTTPException, Request, encoders, responses
 from starlette.concurrency import iterate_in_threadpool, run_in_threadpool
 
@@ -39,6 +45,8 @@ def _no_op_instrumentor_builder(project_id: str) -> None:
 
 def attach_reasoning_engine_routes(app: FastAPI) -> None:
     """Register reasoning_engine routes that dispatch to an AdkApp."""
+    if not _REASONING_ENGINE_AVAILABLE:
+        return
     runtime: AdkApp | None = None
     streaming_methods: set[str] = set()
     sync_methods: set[str] = set()

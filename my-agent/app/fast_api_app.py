@@ -17,15 +17,18 @@ import os
 from collections.abc import AsyncIterator
 from typing import Optional
 
+import json
 from a2a.server.tasks import InMemoryTaskStore
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from google.adk.cli.fast_api import get_fast_api_app
 from google.adk.runners import Runner
+
+from app.guardrails import audit_grant_guardrails
 
 from app.app_utils import services
 from app.app_utils.a2a import attach_a2a_routes
@@ -98,9 +101,9 @@ attach_reasoning_engine_routes(app)
 # --- GRANT OFFICER UI & APPLICATION QUEUE ROUTES ---
 
 class CreateApplicationInput(BaseModel):
-    business_id: str
-    grant_amount: int
-    purpose: str
+    business_id: str = Field(..., min_length=1, max_length=50, pattern=r"^[a-zA-Z0-9_\-]+$")
+    grant_amount: int = Field(..., ge=1000, le=100000, description="Grant amount between $1,000 and $100,000")
+    purpose: str = Field(..., min_length=3, max_length=500)
     business_name: Optional[str] = None
 
 
@@ -197,13 +200,58 @@ async def evaluate_request(request_id: str):
 @app.post("/api/requests")
 async def create_request(payload: CreateApplicationInput):
     """Submits a new grant application and evaluates it immediately."""
-    new_req = store.create_request(
-        business_id=payload.business_id,
-        grant_amount=payload.grant_amount,
-        purpose=payload.purpose,
-        business_name=payload.business_name,
-    )
-    return new_req
+    try:
+        new_req = store.create_request(
+            business_id=payload.business_id,
+            grant_amount=payload.grant_amount,
+            purpose=payload.purpose,
+            business_name=payload.business_name,
+        )
+        return new_req
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/api/guardrails/status")
+async def get_guardrails_status():
+    """Returns the active safety policies and operational boundaries."""
+    return {
+        "status": "active",
+        "agent": "Engine of Prosperity - Grant Decision Agent",
+        "policies": {
+            "budget": {
+                "min_grant_amount": 1000,
+                "max_grant_amount": 100000,
+                "currency": "USD",
+                "escalation_policy": "Requests over $100,000 require City Council and SBA bond issuance review."
+            },
+            "sql_safety": {
+                "mode": "READ_ONLY_ENFORCED",
+                "prohibited_keywords": ["DROP", "DELETE", "UPDATE", "INSERT", "ALTER", "TRUNCATE", "CREATE"],
+                "max_rows": 25,
+                "allowed_datasets": ["a4i_econ", "bigquery-public-data"]
+            },
+            "fair_lending": {
+                "regulation": "Equal Credit Opportunity Act (ECOA) & Civil Rights Act",
+                "demographic_filtering": "PROHIBITED",
+                "equity_scoring_basis": "Neighborhood census tract poverty rate (American Community Survey)"
+            },
+            "data_disclosures": {
+                "mandatory": True,
+                "disclosures": [
+                    "Bureau of Economic Analysis (BEA) direct requirements input-output model",
+                    "LEHD employer block group geographic employment allocation model"
+                ]
+            }
+        }
+    }
+
+
+@app.get("/api/guardrails/audit/{business_id}")
+async def audit_business_guardrails(business_id: str, amount: int = 50000, purpose: str = "Expansion"):
+    """Runs a live 5-point guardrail and regulatory compliance audit for a business."""
+    report_json = audit_grant_guardrails(business_id, amount, purpose)
+    return json.loads(report_json)
 
 
 @app.get("/api/metrics/{business_id}")

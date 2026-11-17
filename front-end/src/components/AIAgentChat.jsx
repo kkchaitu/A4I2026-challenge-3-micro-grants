@@ -9,7 +9,8 @@ import {
   WifiOff,
   Wifi,
   RefreshCw,
-  ChevronDown
+  ChevronDown,
+  ShieldCheck
 } from 'lucide-react';
 import { sendAgentQuery, resetSession } from '../services/agentApi';
 
@@ -53,6 +54,10 @@ export function AIAgentChat({
     {
       label: '⚖️ Equity & Demographics Audit',
       prompt: 'Audit the equity and demographic impact of funding our top resilience candidates in this census tract.',
+    },
+    {
+      label: '🛡️ Policy & Guardrail Audit',
+      prompt: 'Run a 5-point guardrail and compliance audit on applicant 114 to verify budget limits ($1k-$100k), Equal Credit Opportunity Act Fair Lending neutrality, and SQL safety.',
     },
   ];
 
@@ -116,10 +121,15 @@ export function AIAgentChat({
           query: `GRAPH a4i_econ.corridor_graph\nMATCH p = (engine:Business)<-[:Supplies]-{1,3}(supplier:Business)\nRETURN engine.name, SUM(supplier.estimated_jobs) AS total_supplier_jobs\nORDER BY total_supplier_jobs DESC LIMIT 5`,
           output: '[{Warfield, 1272}, {City Produce, 340}, {Binis Kitchen, 189}]',
         };
-      } else if (q.includes('equity') || q.includes('demographic')) {
-        agentResponse = `### Equity & Demographics Audit\n\nCensus tract analysis for active corridor applicants:\n\n- **Neighborhood Poverty Rate:** 22.6%\n- **Minority-Owned Businesses:** 67% of applicant pool\n- **Women-Owned:** 34%\n- **Low-Income Census Tract:** Yes (qualifies for CDFI priority)\n\n**Equity Score by Applicant:**\n| Business | Poverty Rate | MOB | WOB |\n|----------|-------------|-----|-----|\n| Warfield Theater | 22.6% | ✅ | ❌ |\n| Binis Kitchen | 28.1% | ✅ | ✅ |\n| City Produce | 19.3% | ✅ | ❌ |\n\nFunding Binis Kitchen alongside Warfield maximizes both economic multiplier AND equity objectives.`;
+      } else if (q.includes('guardrail') || q.includes('audit') || q.includes('policy')) {
+        agentResponse = `### 🛡️ Compliance & Guardrails Audit: Applicant #114 (The Warfield)\n\n**Overall Status: PASSED (5/5 Checks Compliant)**\n\n- ✅ **Program Budget Ceiling:** $50,000 is within approved micro-grant range ($1,000 - $100,000).\n- ✅ **Fair Lending (ECOA):** 100% demographic neutrality enforced. Evaluations strictly based on neighborhood census tract poverty and graph multiplier.\n- ✅ **SQL & Data Query Safety:** Strict read-only access active. DDL/DML mutations blocked. Query row limits enforced.\n- ✅ **Modeling Disclosures:** Bureau of Economic Analysis (BEA) direct requirements and LEHD employer block allocations declared.\n- ✅ **Upstream Fragility Scan:** Zero defaulted upstream SBA suppliers detected.\n\n*Agent runtime certified compliant with municipal grant governance rules.*`;
+        toolExecution = {
+          tool: 'audit_grant_guardrails(business_id="114", grant_amount=50000)',
+          query: 'SELECT * FROM a4i_econ.businesses WHERE business_id = "114" LIMIT 25',
+          output: '{"status": "PASSED", "checks": 5, "risk_flags": []}',
+        };
       } else {
-        agentResponse = `I analyzed your query against the **${corridor.name}** property graph (${corridor.businesses?.length ?? 0} businesses, BigQuery dataset: \`a4i_econ.corridor_graph\`).\n\nTo get the most relevant answer, try one of the suggested prompts above, or ask about:\n- **Top applicants** and their job multiplier scores\n- **Supply chain** keystone analysis\n- **GQL traversal** queries\n- **Equity** and demographic audit\n\n> ⚠️ Agent backend: ${agentOnline ? '🟢 ONLINE' : '🔴 OFFLINE — running in fallback mode'}`;
+        agentResponse = `I analyzed your query against the **${corridor.name}** property graph (${corridor.businesses?.length ?? 0} businesses, BigQuery dataset: \`a4i_econ.corridor_graph\`).\n\nTo get the most relevant answer, try one of the suggested prompts above, or ask about:\n- **Top applicants** and their job multiplier scores\n- **Supply chain** keystone analysis\n- **GQL traversal** queries\n- **Equity** and demographic audit\n- **Guardrails** and compliance policies\n\n> ⚠️ Agent backend: ${agentOnline ? '🟢 ONLINE' : '🔴 OFFLINE — running in fallback mode'}`;
       }
 
       setMessages(prev => [
@@ -163,8 +173,11 @@ export function AIAgentChat({
                 </span>
               )}
             </h3>
-            <p className="text-[10px] text-slate-400 font-mono">
-              gemini-flash • a4i_econ.corridor_graph • Vertex AI
+            <p className="text-[10px] text-slate-400 font-mono flex items-center gap-1.5">
+              <span>gemini-flash • a4i_econ.corridor_graph</span>
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1">
+                <ShieldCheck className="w-2.5 h-2.5" /> Guardrails Active
+              </span>
             </p>
           </div>
         </div>

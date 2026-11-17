@@ -6,8 +6,8 @@ This project implements a custom track for the Agents for Impact 2026 challenge.
 
 ### Core Concept
 *   **Flip the script:** Instead of saving failing businesses, the goal is to accelerate successful ones.
-*   **Economic Engines:** We are looking for "economic engines"—businesses whose expansion creates the largest ripple of growth and stability for their suppliers.
-*   **Objective:** Maximize downstream businesses supported and stabilized per grant dollar.
+*   **Economic Engines:** We are looking for "economic engines"—businesses whose expansion creates the largest ripple of localized job growth.
+*   **Objective:** Lower the city's unemployment rate by maximizing the total job footprint (direct + indirect) created per grant dollar.
 
 ### GQL Traversal Direction
 *   The `Supplies` relationship points from `Supplier -> Buyer`.
@@ -17,11 +17,11 @@ This project implements a custom track for the Agents for Impact 2026 challenge.
     MATCH p = (engine:Business)<-[:Supplies]-{1,3}(supplier:Business)
     ```
 
-### Crucial Constraint: The "Job Count" Trap
-*   **DO NOT** attempt to maximize or calculate "indirect jobs" using the public data provided by the challenge.
-*   Per-business employment is **not published** for small businesses anywhere in the US data provided. The Census publishes counts by area and industry, never by business.
-*   **Instead:** The cascade should count the number of *businesses* exposed/supported, not jobs.
-*   *Exception:* If you integrate a custom external data source (e.g., average employee count by NAICS code) or use Gemini to estimate headcount heuristically based on industry and location, clearly state this assumption. This is a high-reward differentiator if done correctly and honestly.
+### Crucial Differentiator: Modeling Job Creation
+*   The challenge explicitly notes that "per-business employment is not published" and that providing a defensible model for job counts is a "real contribution" that separates winning teams.
+*   **Our Approach (Option B):** We will model direct business employment by geographically allocating the real job counts from the `employer_blocks` table to the registered `businesses` physically closest to them.
+*   **The Math:** By creating a baseline `estimated_jobs` attribute for every business, our graph traversal can calculate a true "Multiplier Effect" sum, proving the downstream employment ROI of the grant.
+*   **Honest Limitations:** We will explicitly declare to the judges that this geographic allocation model introduces structural skew (e.g., large office block jobs being assigned to small retailers), fulfilling the challenge requirement to state our assumptions.
 
 ### Target User
-*   The primary user for this track is an **Economic Development Director** looking to allocate growth grants or tax incentives, rather than an emergency relief officer.
+*   The primary user for this track is an **Economic Development Director** looking to allocate growth grants or tax incentives to drive targeted job creation and economic diversification, rather than an emergency relief officer.

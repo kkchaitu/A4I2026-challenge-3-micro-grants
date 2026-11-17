@@ -25,6 +25,7 @@ export function App() {
   const [strategyMode, setStrategyMode] = useState('resilience'); // 'resilience' | 'naive'
   const [selectedBusinessId, setSelectedBusinessId] = useState('cm-01');
   const [agentOnline, setAgentOnline] = useState(false);
+  const [copilotInitialPrompt, setCopilotInitialPrompt] = useState('');
 
   const checkStatus = async () => {
     const res = await checkAgentHealth();
@@ -129,6 +130,15 @@ export function App() {
     setActiveTab('grant-memo');
   };
 
+  const handlePitchWithCopilot = (req) => {
+    const bizName = req.report?.business_name || req.business_name || `Applicant Business #${req.business_id}`;
+    const amount = req.grant_amount || 50000;
+    const purpose = req.purpose || req.report?.purpose || 'Stage acoustics modernization and local supplier contract expansion';
+    const prompt = `Prepare the official municipal committee pitch deck and economic defense for applicant ${bizName} (ID: ${req.business_id}, Requested Grant: $${amount.toLocaleString()}, Purpose: "${purpose}"). Execute the multi-stage evaluation protocol across supply chain cascade GQL traversal, Census LEHD job multiplier modeling, tract poverty equity audit, upstream SBA loan charge-off scan, counterfactual runner-up comparison, and compile the formal 5-slide pitch deck and roll-call motion.`;
+    setCopilotInitialPrompt(prompt);
+    setActiveTab('ai-copilot');
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
       <Header
@@ -170,6 +180,7 @@ export function App() {
               setActiveTab('map-view');
             }}
             onSelectBusinessForMemo={handleSelectBusinessForMemo}
+            onPitchWithCopilot={handlePitchWithCopilot}
           />
         )}
 
@@ -231,6 +242,8 @@ export function App() {
             corridor={currentCorridor}
             agentOnline={agentOnline}
             onSelectBusinessForMemo={handleSelectBusinessForMemo}
+            initialPrompt={copilotInitialPrompt}
+            onClearInitialPrompt={() => setCopilotInitialPrompt('')}
           />
         )}
 

@@ -27,6 +27,7 @@ export function LiveGrantQueue({
   onSelectBusinessForGraph,
   onSelectBusinessForMap,
   onSelectBusinessForMemo,
+  onPitchWithCopilot,
   corridor
 }) {
   const [requests, setRequests] = useState([]);
@@ -359,9 +360,15 @@ export function LiveGrantQueue({
                   <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1.5">
                       <button
-                        onClick={() => handleStartPitchReport(req)}
+                        onClick={() => {
+                          if (onPitchWithCopilot) {
+                            onPitchWithCopilot(req);
+                          } else {
+                            handleStartPitchReport(req);
+                          }
+                        }}
                         className="flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold transition cursor-pointer shadow-sm shadow-emerald-500/20"
-                        title="Pitch Case to Committee (AI Dossier & Graphs)"
+                        title="Pitch Case to Committee with Conversational AI Copilot"
                       >
                         <Sparkles className="w-3.5 h-3.5 text-amber-300" />
                         <span>Pitch Case</span>

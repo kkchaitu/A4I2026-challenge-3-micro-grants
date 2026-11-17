@@ -20,6 +20,7 @@ from typing import Optional
 from a2a.server.tasks import InMemoryTaskStore
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from google.adk.cli.fast_api import get_fast_api_app
@@ -78,6 +79,14 @@ app: FastAPI = get_fast_api_app(
 )
 app.title = "Engine of Prosperity - Grant Decision Agent"
 app.description = "API and Dashboard for Economic Resilience and Micro-Grants Decision Support"
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Proxy routes so the Google Cloud console playground (reasoning_engine SDK) can
 # talk to this agent alongside the native adk_api routes.

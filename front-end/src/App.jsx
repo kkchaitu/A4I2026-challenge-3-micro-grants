@@ -222,6 +222,7 @@ export function App() {
         {activeTab === 'ai-copilot' && (
           <AIAgentChat
             corridor={currentCorridor}
+            agentOnline={agentOnline}
             onSelectBusinessForMemo={handleSelectBusinessForMemo}
           />
         )}

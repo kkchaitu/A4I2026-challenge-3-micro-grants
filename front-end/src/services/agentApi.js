@@ -117,6 +117,7 @@ export async function sendAgentQuery(message) {
       const events = await res.json();
       // ADK returns an array of events; find the last model text response
       const textParts = [];
+      const toolCalls = [];
       if (Array.isArray(events)) {
         for (const event of events) {
           const parts = event?.content?.parts ?? [];
@@ -124,13 +125,37 @@ export async function sendAgentQuery(message) {
             if (part.text && event?.content?.role === 'model') {
               textParts.push(part.text.trim());
             }
+            if (part.function_call) {
+              const fnName = part.function_call.name || 'tool';
+              const fnArgs = part.function_call.args || {};
+              toolCalls.push({
+                tool: fnName,
+                query: `${fnName}(${JSON.stringify(fnArgs)})`,
+                output: 'Executing on BigQuery Property Graph...',
+              });
+            }
+            if (part.function_response) {
+              const fnName = part.function_response.name || 'tool';
+              const fnResp = part.function_response.response || {};
+              const formattedResp = typeof fnResp === 'object' ? JSON.stringify(fnResp, null, 2) : String(fnResp);
+              const existing = toolCalls.find(tc => tc.tool === fnName && tc.output.includes('Executing'));
+              if (existing) {
+                existing.output = formattedResp;
+              } else {
+                toolCalls.push({
+                  tool: fnName,
+                  query: `${fnName}() response`,
+                  output: formattedResp,
+                });
+              }
+            }
           }
         }
       }
       const text = textParts.length > 0
         ? textParts[textParts.length - 1]   // take final model turn
         : (typeof events === 'string' ? events : JSON.stringify(events, null, 2));
-      return { success: true, text, events };
+      return { success: true, text, events, toolCalls };
     }
 
     // Session expired — reset and surface error

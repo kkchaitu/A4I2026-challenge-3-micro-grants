@@ -160,3 +160,52 @@ def test_api_routes():
     assert "chart.js" in html_resp.text.lower()
     assert "OFFICIAL COMMITTEE PITCH DOSSIER" in html_resp.text
     assert "Visual Proof of Economic Multiplier" in html_resp.text
+
+
+def test_multistage_copilot_tools():
+    """Verifies that all 6 granular multi-stage tools callable by the conversational copilot return valid data."""
+    import json
+    from app.agent import (
+        traverse_upstream_supply_chain,
+        model_direct_and_cascade_jobs,
+        audit_tract_equity_and_poverty,
+        scan_upstream_sba_chargeoffs,
+        evaluate_counterfactual_comparison,
+        compile_committee_pitch_deck
+    )
+
+    biz_id = "114"
+
+    # Stage 1: GQL Traversal
+    s1 = json.loads(traverse_upstream_supply_chain(biz_id))
+    assert s1["stage"] == "STAGE_1_GRAPH_TRAVERSAL"
+    assert s1["upstream_suppliers_count"] > 0
+
+    # Stage 2: LEHD Job Modeling
+    s2 = json.loads(model_direct_and_cascade_jobs(biz_id, grant_amount=50000))
+    assert s2["stage"] == "STAGE_2_EMPLOYMENT_MODELING"
+    assert s2["total_community_job_footprint"] >= s2["direct_jobs"]
+    assert s2["net_cost_per_job_saved"] > 0
+
+    # Stage 3: Tract Equity Audit
+    s3 = json.loads(audit_tract_equity_and_poverty(biz_id))
+    assert s3["stage"] == "STAGE_3_TRACT_EQUITY_AUDIT"
+    assert "poverty" in s3["neighborhood_poverty_rate"].lower() or "%" in s3["neighborhood_poverty_rate"]
+
+    # Stage 4: SBA Fragility Scan
+    s4 = json.loads(scan_upstream_sba_chargeoffs(biz_id))
+    assert s4["stage"] == "STAGE_4_SBA_FRAGILITY_SCAN"
+    assert "solvency_status" in s4
+
+    # Stage 5: Counterfactual Defense
+    s5 = json.loads(evaluate_counterfactual_comparison(biz_id, grant_amount=50000))
+    assert s5["stage"] == "STAGE_5_COUNTERFACTUAL_RUNNER_UP_DEFENSE"
+    assert "naive_distress_runner_up" in s5
+    assert "hub_exclusion_rule" in s5
+
+    # Stage 6: Committee Pitch Deck
+    s6 = json.loads(compile_committee_pitch_deck(biz_id, grant_amount=50000))
+    assert s6["stage"] == "STAGE_6_PITCH_DECK_ASSEMBLY"
+    assert len(s6["slides"]) == 5
+    assert "official_roll_call_motion" in s6
+

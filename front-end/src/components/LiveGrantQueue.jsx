@@ -20,6 +20,8 @@ import {
   fetchLiveRequests, 
   triggerEvaluateRequest 
 } from '../services/agentApi';
+import { AIAgentProgressModal } from './AIAgentProgressModal';
+import { CommitteePitchReport } from './CommitteePitchReport';
 
 export function LiveGrantQueue({
   onSelectBusinessForGraph,
@@ -34,6 +36,8 @@ export function LiveGrantQueue({
   const [showNewModal, setShowNewModal] = useState(false);
   const [filterRating, setFilterRating] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [pitchReportTarget, setPitchReportTarget] = useState(null);
+  const [pitchProgressTarget, setPitchProgressTarget] = useState(null);
 
   // New application form state
   const [newApp, setNewApp] = useState({
@@ -89,6 +93,26 @@ export function LiveGrantQueue({
     }
   };
 
+  const handleStartPitchReport = async (req) => {
+    let target = req;
+    if (!req.report) {
+      try {
+        const res = await fetch(`/api/requests/${req.request_id}`);
+        if (res.ok) {
+          target = await res.json();
+        }
+      } catch (err) {
+        console.error('Failed to fetch full request:', err);
+      }
+    }
+    setPitchProgressTarget(target);
+  };
+
+  const handleFinishPitchProgress = () => {
+    setPitchReportTarget(pitchProgressTarget);
+    setPitchProgressTarget(null);
+  };
+
   const handleSubmitNewApp = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -141,6 +165,15 @@ export function LiveGrantQueue({
     if (rating.includes('CONDITIONS')) return 'bg-amber-500/15 text-amber-300 border-amber-500/30';
     return 'bg-rose-500/15 text-rose-300 border-rose-500/30';
   };
+
+  if (pitchReportTarget) {
+    return (
+      <CommitteePitchReport
+        applicant={pitchReportTarget}
+        onBack={() => setPitchReportTarget(null)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -326,11 +359,19 @@ export function LiveGrantQueue({
                   <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1.5">
                       <button
+                        onClick={() => handleStartPitchReport(req)}
+                        className="flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold transition cursor-pointer shadow-sm shadow-emerald-500/20"
+                        title="Pitch Case to Committee (AI Dossier & Graphs)"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                        <span>Pitch Case</span>
+                      </button>
+                      <button
                         onClick={() => handleOpenReport(req.request_id)}
                         className="px-2.5 py-1 text-xs rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium transition cursor-pointer"
                         title="View 4-pillar scorecard & memo"
                       >
-                        Scorecard & Memo
+                        Scorecard
                       </button>
                       <button
                         onClick={() => onSelectBusinessForGraph(req.business_id)}
@@ -611,6 +652,17 @@ export function LiveGrantQueue({
                   <FileText className="w-3.5 h-3.5" />
                   <span>Generate Municipal Memo</span>
                 </button>
+                <button
+                  onClick={() => {
+                    const target = activeReport;
+                    setActiveReport(null);
+                    handleStartPitchReport(target);
+                  }}
+                  className="px-3.5 py-1.5 text-xs rounded-lg bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold flex items-center gap-1.5 cursor-pointer shadow-md shadow-emerald-500/20"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  <span>Pitch Case to Committee</span>
+                </button>
               </div>
 
               <button
@@ -710,6 +762,15 @@ export function LiveGrantQueue({
             </form>
           </div>
         </div>
+      )}
+
+      {/* Claude/Gemini-like Reasoning Animation Modal */}
+      {pitchProgressTarget && (
+        <AIAgentProgressModal
+          applicant={pitchProgressTarget}
+          onComplete={handleFinishPitchProgress}
+          onCancel={() => setPitchProgressTarget(null)}
+        />
       )}
     </div>
   );

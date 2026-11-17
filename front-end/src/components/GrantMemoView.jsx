@@ -162,8 +162,19 @@ A micro-grant does not guarantee indefinite survival; it shifts the probability 
             className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-sm transition flex items-center gap-1.5 cursor-pointer"
           >
             <Printer className="w-3.5 h-3.5" />
-            <span>Print / Export PDF</span>
+            <span>Print Memo</span>
           </button>
+
+          <a
+            href={`/report/${candidate.id.startsWith('cm-') ? (candidate.id === 'cm-01' ? 'REQ-2026-001' : candidate.id === 'cm-02' ? 'REQ-2026-002' : 'REQ-2026-003') : candidate.id}`}
+            target="_blank"
+            rel="noreferrer"
+            className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white text-xs font-semibold shadow-sm transition flex items-center gap-1.5"
+            title="Open full page HTML Committee Pitch Dossier with Chart.js proof graphs"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+            <span>Full Pitch Dossier (HTML & Graphs)</span>
+          </a>
         </div>
       </div>
 

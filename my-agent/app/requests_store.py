@@ -178,6 +178,13 @@ class RequestsStore:
         """Returns full request record including report and memo."""
         return self._requests.get(request_id)
 
+    def get_dossier(self, request_id: str) -> Optional[Dict[str, Any]]:
+        """Returns the structured committee pitch dossier and chart datasets."""
+        req = self._requests.get(request_id)
+        if not req:
+            return None
+        return req.get("report", {}).get("dossier")
+
     def evaluate_request(self, request_id: str, custom_memo: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Re-evaluates the request using live BigQuery graph traversal and updates memo."""
         req = self._requests.get(request_id)

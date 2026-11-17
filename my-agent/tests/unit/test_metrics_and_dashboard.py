@@ -145,3 +145,18 @@ def test_api_routes():
     })
     assert create_resp.status_code == 200
     assert create_resp.json()["grant_amount"] == 30000
+
+    # 6. Structured Dossier API
+    dossier_resp = client.get(f"/api/requests/{req_id}/report")
+    assert dossier_resp.status_code == 200
+    dossier_data = dossier_resp.json()
+    assert "dossier" in dossier_data
+    assert "charts" in dossier_data["dossier"]
+    assert "defense_narrative" in dossier_data["dossier"]
+
+    # 7. Standalone Committee Pitch HTML Report with Charts on Top
+    html_resp = client.get(f"/report/{req_id}")
+    assert html_resp.status_code == 200
+    assert "chart.js" in html_resp.text.lower()
+    assert "OFFICIAL COMMITTEE PITCH DOSSIER" in html_resp.text
+    assert "Visual Proof of Economic Multiplier" in html_resp.text

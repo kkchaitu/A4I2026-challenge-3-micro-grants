@@ -34,6 +34,7 @@ from app.app_utils.reasoning_engine_adapter import (
 )
 from app.requests_store import store
 from app.metrics_service import calculate_applicant_metrics
+from app.report_html_generator import render_committee_report_html
 
 load_dotenv()
 allow_origins = (
@@ -157,6 +158,31 @@ async def get_request(request_id: str):
     if not req:
         raise HTTPException(status_code=404, detail=f"Application {request_id} not found.")
     return req
+
+
+@app.get("/api/requests/{request_id}/report")
+async def get_request_report(request_id: str):
+    """Returns structured committee pitch dossier data and Chart.js datasets."""
+    req = store.get_request(request_id)
+    if not req:
+        raise HTTPException(status_code=404, detail=f"Application {request_id} not found.")
+    dossier = store.get_dossier(request_id)
+    return {
+        "request_id": request_id,
+        "business_id": req["business_id"],
+        "business_name": req["business_name"],
+        "grant_amount": req["grant_amount"],
+        "dossier": dossier,
+    }
+
+
+@app.get("/report/{request_id}", response_class=HTMLResponse)
+async def view_standalone_report(request_id: str):
+    """Serves the full-page executive committee pitch HTML report with Chart.js proof graphs."""
+    req = store.get_request(request_id)
+    if not req:
+        raise HTTPException(status_code=404, detail=f"Application {request_id} not found.")
+    return HTMLResponse(content=render_committee_report_html(req))
 
 
 @app.post("/api/requests/{request_id}/evaluate")

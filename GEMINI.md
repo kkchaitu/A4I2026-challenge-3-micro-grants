@@ -9,6 +9,13 @@ This project implements a custom track for the Agents for Impact 2026 challenge.
 *   **Economic Engines:** We are looking for "economic engines"—businesses whose expansion creates the largest ripple of localized job growth.
 *   **Objective:** Lower the city's unemployment rate by maximizing the total job footprint (direct + indirect) created per grant dollar.
 
+### Documentation & Planning
+*   **[Track Naming & Pitch](docs/track_naming.md):** Options for naming and framing the track for the judges.
+*   **[Short Pitches](docs/short_pitch.md):** Elevator pitches combining the concepts of prosperity and growth.
+*   **[Track Metrics](docs/track_metrics.md):** The framework for measuring ROI, Equity, Resilience, and Risk.
+*   **[Implementation Plan](docs/track_metrics_plan.md):** How the data and agent lanes will collect and calculate the required metrics.
+*   **[Track Suggestion](docs/track_suggestion.md):** The original breakdown of the track mechanics.
+
 ### GQL Traversal Direction
 *   The `Supplies` relationship points from `Supplier -> Buyer`.
 *   Because we are helping the buyer (the "engine") expand, the economic benefit flows **backward** against the arrow to their suppliers.

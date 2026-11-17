@@ -1,0 +1,15 @@
+steps:
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'my-agent'
+      - '--source=my-agent'
+      - '--region=us-central1'
+      - '--project=$PROJECT_ID'
+      - '--allow-unauthenticated'
+      - '--set-env-vars=GOOGLE_GENAI_USE_ENTERPRISE=true,GOOGLE_CLOUD_LOCATION=global,GOOGLE_CLOUD_PROJECT=$PROJECT_ID'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
